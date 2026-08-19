@@ -168,9 +168,6 @@ export async function forgotPasswordAction(
   if (!parsed.success) return invalidFields(parsed.error);
 
   try {
-    const limit = await enforceAuthRateLimit("PASSWORD_RESET", parsed.data.email);
-    if (!limit.allowed) return rateLimitFailure(limit.retryAfterSeconds);
-
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
       redirectTo: `${getAppUrl()}/auth/callback?next=/reset-password`,
