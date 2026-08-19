@@ -31,9 +31,7 @@ function configurationFailure(error: unknown): AuthActionState | null {
 }
 
 function logTechnicalAuthError(context: string, error: unknown) {
-  if (process.env.NODE_ENV === "development") {
-    console.error(`Error técnico de ${context}:`, error);
-  }
+  console.error(`Error técnico de ${context}:`, error);
 }
 
 function rateLimitFailure(retryAfterSeconds: number): AuthActionState {

@@ -9,6 +9,7 @@ import { roleCanAccessPath, roleDestination, sanitizeInternalRedirect, withAuthF
 import { getClientIp } from "../src/lib/security/client-ip";
 import { createRateLimitKey } from "../src/lib/security/rate-limit-key";
 import { getAppUrl } from "../src/lib/supabase/app-url";
+import { normalizeSupabaseUrl } from "../src/lib/supabase/supabase-url";
 
 describe("redirecciones de autenticación", () => {
   it("acepta sólo rutas internas y evita open redirects", () => {
@@ -67,6 +68,13 @@ describe("URL canónica de autenticación", () => {
     process.env.VERCEL_PROJECT_PRODUCTION_URL = "nodo-web-platform.vercel.app";
     process.env.VERCEL_URL = "nodo-temporal.vercel.app";
     expect(getAppUrl()).toBe("https://nodo-web-platform.vercel.app");
+  });
+});
+
+describe("configuración pública de Supabase", () => {
+  it("normaliza URLs que incluyan accidentalmente un endpoint de la API", () => {
+    expect(normalizeSupabaseUrl("https://project.supabase.co/rest/v1")).toBe("https://project.supabase.co");
+    expect(normalizeSupabaseUrl("https://project.supabase.co/auth/v1/")).toBe("https://project.supabase.co");
   });
 });
 

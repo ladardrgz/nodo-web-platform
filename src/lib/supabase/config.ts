@@ -1,4 +1,5 @@
 import { AuthConfigurationError } from "@/lib/auth/errors";
+import { normalizeSupabaseUrl } from "@/lib/supabase/supabase-url";
 export { getAppUrl } from "@/lib/supabase/app-url";
 
 export interface PublicSupabaseConfig {
@@ -7,11 +8,11 @@ export interface PublicSupabaseConfig {
 }
 
 export function getPublicSupabaseConfig(): PublicSupabaseConfig | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-  if (!url || !publishableKey) return null;
-  return { url, publishableKey };
+  if (!rawUrl || !publishableKey) return null;
+  return { url: normalizeSupabaseUrl(rawUrl), publishableKey };
 }
 
 export function requirePublicSupabaseConfig(): PublicSupabaseConfig {
