@@ -4,31 +4,14 @@ import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
-import { createOrganizationAction, inviteUserAction, updateProfileAccessAction } from "@/features/superadmin/actions";
+import { CreateOrganizationForm, InviteUserForm, ProfileAccessForm } from "@/features/superadmin/components/SuperadminForms";
 import { formatDateTime } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Superadmin" };
 
-const messages: Record<string, string> = {
-  profile_updated: "Acceso actualizado.",
-  organization_created: "Organización creada.",
-  user_invited: "Invitación enviada.",
-};
-
-const errors: Record<string, string> = {
-  invalid_profile: "Los datos del perfil no son válidos.",
-  update_failed: "No se pudo actualizar el perfil.",
-  invalid_organization: "Revisá nombre y slug.",
-  organization_failed: "No se pudo crear la organización.",
-  invalid_invitation: "Revisá los datos de la invitación.",
-  invitation_failed: "No se pudo enviar la invitación.",
-  invitation_profile_failed: "La invitación se creó, pero el perfil necesita revisión.",
-};
-
-export default async function SuperadminPage({ searchParams }: { searchParams: Promise<{ message?: string; error?: string }> }) {
-  const params = await searchParams;
+export default async function SuperadminPage() {
   const supabase = await createSupabaseServerClient();
   const admin = createSupabaseAdminClient();
 
@@ -54,9 +37,6 @@ export default async function SuperadminPage({ searchParams }: { searchParams: P
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-primary">Resumen de plataforma</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Organizaciones, identidades y actividad general. Los valores provienen directamente de Supabase; no se generan estadísticas ficticias.</p>
 
-        {params.message && messages[params.message] ? <p className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{messages[params.message]}</p> : null}
-        {params.error && errors[params.error] ? <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">{errors[params.error]}</p> : null}
-
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard description="Entidades registradas en la plataforma." icon={<Building2 className="size-5" />} label="Organizaciones" value={organizationResult.count ?? 0} />
           <StatCard description="Perfiles de aplicación vinculados a Auth." icon={<Users className="size-5" />} label="Usuarios" value={profileResult.count ?? 0} />
@@ -71,11 +51,7 @@ export default async function SuperadminPage({ searchParams }: { searchParams: P
           <Card className="p-5">
             <h3 className="font-bold text-primary">Nueva organización</h3>
             <p className="mt-1 text-xs leading-5 text-muted">El slug identifica a la organización y debe ser único.</p>
-            <form action={createOrganizationAction} className="mt-4 space-y-3">
-              <input className="field-control" name="name" placeholder="Nombre de la organización" required />
-              <input className="field-control" name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="nombre-organizacion" required />
-              <button className="min-h-11 w-full rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong" type="submit">Crear organización</button>
-            </form>
+            <CreateOrganizationForm />
           </Card>
           <Card className="overflow-hidden">
             <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Organizaciones registradas</h3></div>
@@ -89,19 +65,12 @@ export default async function SuperadminPage({ searchParams }: { searchParams: P
         <Card className="p-5">
           <h3 className="flex items-center gap-2 font-bold text-primary"><UserPlus className="size-5 text-accent" />Invitar usuario</h3>
           <p className="mt-1 text-xs leading-5 text-muted">La invitación envía un enlace seguro; Nodo no genera ni almacena contraseñas.</p>
-          <form action={inviteUserAction} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <input className="field-control" name="firstName" placeholder="Nombre" required />
-            <input className="field-control" name="lastName" placeholder="Apellido" required />
-            <input className="field-control" name="email" placeholder="correo@dominio.com" required type="email" />
-            <select className="field-control" name="role"><option value="OWNER">Propietario</option><option value="CUSTOMER">Cliente</option></select>
-            <select className="field-control" name="organizationId" required><option value="">Organización</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select>
-            <button className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong md:col-span-2 xl:col-span-5" type="submit">Enviar enlace de activación</button>
-          </form>
+          <InviteUserForm organizations={organizations} />
         </Card>
 
         <Card className="overflow-hidden">
           <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Usuarios y permisos</h3><p className="mt-1 text-xs text-muted">Cada modificación de rol o estado queda auditada.</p></div>
-          {profiles.length ? <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead><tr className="bg-surface-soft text-xs font-bold uppercase tracking-wide text-muted"><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Organización</th><th className="px-5 py-3">Acceso</th></tr></thead><tbody>{profiles.map((profile) => <tr className="border-t border-border" key={profile.id}><td className="px-5 py-4"><strong className="block text-sm text-primary">{profile.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Sin nombre"}</strong><span className="block text-xs text-muted">{emailMap.get(profile.id) ?? "Correo no disponible"}</span><span className="font-mono text-[10px] text-slate-400">{profile.id}</span></td><td className="px-5 py-4 text-sm text-muted">{profile.organization_id ? organizationMap.get(profile.organization_id) ?? "Sin acceso" : "Global"}</td><td className="px-5 py-4"><form action={updateProfileAccessAction} className="flex gap-2"><input name="userId" type="hidden" value={profile.id} /><select className="field-control min-w-36" defaultValue={profile.role} name="role"><option value="SUPERADMIN">Superadmin</option><option value="OWNER">Propietario</option><option value="CUSTOMER">Cliente</option></select><select className="field-control min-w-36" defaultValue={profile.status} name="status"><option value="ACTIVE">Activo</option><option value="SUSPENDED">Suspendido</option><option value="DISABLED">Deshabilitado</option></select><select className="field-control min-w-44" defaultValue={profile.organization_id ?? ""} name="organizationId"><option value="">Sin organización</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select><button className="rounded-lg border border-border px-3 text-sm font-semibold text-primary hover:bg-slate-50" type="submit">Guardar</button></form></td></tr>)}</tbody></table></div> : <EmptyState description="Los usuarios aparecerán después del primer registro o invitación." title="No hay perfiles" />}
+          {profiles.length ? <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead><tr className="bg-surface-soft text-xs font-bold uppercase tracking-wide text-muted"><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Organización</th><th className="px-5 py-3">Acceso</th></tr></thead><tbody>{profiles.map((profile) => <tr className="border-t border-border" key={profile.id}><td className="px-5 py-4"><strong className="block text-sm text-primary">{profile.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Sin nombre"}</strong><span className="block text-xs text-muted">{emailMap.get(profile.id) ?? "Correo no disponible"}</span><span className="font-mono text-[10px] text-slate-400">{profile.id}</span></td><td className="px-5 py-4 text-sm text-muted">{profile.organization_id ? organizationMap.get(profile.organization_id) ?? "Sin acceso" : "Global"}</td><td className="px-5 py-4"><ProfileAccessForm organizations={organizations} profile={{ id: profile.id, role: profile.role, status: profile.status, organizationId: profile.organization_id ?? "" }} /></td></tr>)}</tbody></table></div> : <EmptyState description="Los usuarios aparecerán después del primer registro o invitación." title="No hay perfiles" />}
         </Card>
       </section>
 

@@ -50,7 +50,7 @@ export function roleCanAccessPath(role: AppRole, path: string): boolean {
   return false;
 }
 
-export function withAuthFeedback(path: string, feedback: "session_started" | "password_changed" | "signed_out"): string {
+export function withAuthFeedback(path: string, feedback: "session_started" | "account_created" | "password_changed" | "signed_out"): string {
   const url = new URL(path, "https://nodo.invalid");
   url.searchParams.set("auth", feedback);
   return `${url.pathname}${url.search}${url.hash}`;

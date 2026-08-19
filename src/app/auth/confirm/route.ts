@@ -20,7 +20,12 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.verifyOtp({ type: rawType, token_hash: tokenHash });
-    if (error || !data.user) throw new Error("invalid_confirmation");
+    if (error || !data.user) {
+      const errorMessage = error?.message.toLocaleLowerCase("en-US") ?? "";
+      if (rawType === "recovery") loginUrl.searchParams.set("error", errorMessage.includes("expired") ? "recovery_link_expired" : "recovery_link_invalid");
+      if (rawType === "invite") loginUrl.searchParams.set("error", "invitation_link_invalid");
+      throw new Error("invalid_confirmation");
+    }
     if (rawType === "recovery") return NextResponse.redirect(new URL("/reset-password", request.url));
     if (rawType === "invite") return NextResponse.redirect(new URL("/configure-account", request.url));
 
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest) {
     destinationUrl.searchParams.set("auth", "session_started");
     return NextResponse.redirect(destinationUrl);
   } catch {
-    loginUrl.searchParams.set("error", "confirmation_failed");
+    if (!loginUrl.searchParams.has("error")) loginUrl.searchParams.set("error", "confirmation_failed");
     return NextResponse.redirect(loginUrl);
   }
 }

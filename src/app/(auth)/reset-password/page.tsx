@@ -9,5 +9,5 @@ export const metadata: Metadata = { title: "Restablecer contraseña" };
 
 export default async function ResetPasswordPage() {
   await requireAuth({ allowPasswordChange: true });
-  return <AuthPageFrame><AuthCard eyebrow="Acceso recuperado" title="Creá una nueva contraseña" description="Elegí una contraseña nueva para volver a acceder a tu cuenta de Nodo."><ChangePasswordForm /></AuthCard></AuthPageFrame>;
+  return <AuthPageFrame><AuthCard eyebrow="Acceso recuperado" title="Creá una nueva contraseña" description="Elegí una contraseña nueva para volver a acceder a tu cuenta de Nodo."><ChangePasswordForm flow="reset" /></AuthCard></AuthPageFrame>;
 }

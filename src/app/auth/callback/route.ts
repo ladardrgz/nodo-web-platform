@@ -17,7 +17,12 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error || !data.user) throw new Error("invalid_callback");
+    if (error || !data.user) {
+      const errorMessage = error?.message.toLocaleLowerCase("en-US") ?? "";
+      if (requestedPath === "/reset-password") loginUrl.searchParams.set("error", errorMessage.includes("expired") ? "recovery_link_expired" : "recovery_link_invalid");
+      if (requestedPath === "/configure-account") loginUrl.searchParams.set("error", "invitation_link_invalid");
+      throw new Error("invalid_callback");
+    }
 
     if (requestedPath === "/reset-password" || requestedPath === "/configure-account") {
       return NextResponse.redirect(new URL(requestedPath, request.url));
@@ -49,7 +54,7 @@ export async function GET(request: NextRequest) {
     destinationUrl.searchParams.set("auth", "session_started");
     return NextResponse.redirect(destinationUrl);
   } catch {
-    loginUrl.searchParams.set("error", "callback_failed");
+    if (!loginUrl.searchParams.has("error")) loginUrl.searchParams.set("error", "callback_failed");
     return NextResponse.redirect(loginUrl);
   }
 }

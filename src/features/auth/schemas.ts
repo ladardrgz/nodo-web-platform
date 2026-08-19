@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { ActionFeedbackState } from "@/lib/feedback/types";
+
 const email = z
   .string()
   .trim()
@@ -52,9 +54,7 @@ export const passwordChangeSchema = z
 
 export type AuthFieldErrors = Record<string, string[] | undefined>;
 
-export interface AuthActionState {
-  status: "idle" | "error" | "success";
-  message?: string;
+export interface AuthActionState extends ActionFeedbackState {
   fieldErrors?: AuthFieldErrors;
   retryAfterSeconds?: number;
 }

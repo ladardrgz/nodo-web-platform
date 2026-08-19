@@ -36,6 +36,8 @@ interface RepairDraft {
   termsAccepted: boolean;
 }
 
+type RepairFieldErrors = Partial<Record<keyof RepairDraft, string>>;
+
 const initialDraft: RepairDraft = {
   customerId: "",
   firstName: "",
@@ -57,17 +59,18 @@ const initialDraft: RepairDraft = {
 export function NewRepairForm({ customers }: { customers: Customer[] }) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<RepairDraft>(initialDraft);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<RepairFieldErrors>({});
   const [completed, setCompleted] = useState(false);
 
   const customerName = useMemo(() => `${draft.firstName} ${draft.lastName}`.trim(), [draft.firstName, draft.lastName]);
 
   function update<K extends keyof RepairDraft>(key: K, value: RepairDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
-    setErrors([]);
+    setErrors((current) => ({ ...current, [key]: undefined }));
   }
 
   function selectCustomer(customerId: string) {
+    setErrors({});
     if (customerId === "NEW") {
       setDraft((current) => ({ ...current, customerId, firstName: "", lastName: "", phone: "", email: "" }));
       return;
@@ -81,27 +84,27 @@ export function NewRepairForm({ customers }: { customers: Customer[] }) {
       phone: customer?.phone ?? "",
       email: customer?.email ?? "",
     }));
-    setErrors([]);
   }
 
   function validateCurrentStep(): boolean {
-    const nextErrors: string[] = [];
+    const nextErrors: RepairFieldErrors = {};
     if (step === 0) {
-      if (!draft.customerId) nextErrors.push("Seleccioná un cliente o elegí registrar uno nuevo.");
-      if (!draft.firstName.trim() || !draft.lastName.trim()) nextErrors.push("Completá el nombre y apellido del cliente.");
-      if (!draft.phone.trim()) nextErrors.push("Ingresá un teléfono de contacto.");
+      if (!draft.customerId) nextErrors.customerId = "Seleccioná un cliente o elegí registrar uno nuevo.";
+      if (!draft.firstName.trim()) nextErrors.firstName = "Ingresá el nombre del cliente.";
+      if (!draft.lastName.trim()) nextErrors.lastName = "Ingresá el apellido del cliente.";
+      if (!draft.phone.trim()) nextErrors.phone = "Ingresá un teléfono de contacto.";
     }
     if (step === 1) {
-      if (!draft.brand.trim()) nextErrors.push("Ingresá la marca del dispositivo.");
-      if (!draft.model.trim()) nextErrors.push("Ingresá el modelo del dispositivo.");
+      if (!draft.brand.trim()) nextErrors.brand = "Ingresá la marca del dispositivo.";
+      if (!draft.model.trim()) nextErrors.model = "Ingresá el modelo del dispositivo.";
     }
     if (step === 2) {
-      if (!draft.reportedProblem.trim()) nextErrors.push("Describí el problema informado por el cliente.");
-      if (!draft.physicalCondition) nextErrors.push("Seleccioná el estado físico general.");
+      if (!draft.reportedProblem.trim()) nextErrors.reportedProblem = "Describí el problema informado por el cliente.";
+      if (!draft.physicalCondition) nextErrors.physicalCondition = "Seleccioná el estado físico general.";
     }
-    if (step === 3 && !draft.termsAccepted) nextErrors.push("Confirmá que la información fue revisada con el cliente.");
+    if (step === 3 && !draft.termsAccepted) nextErrors.termsAccepted = "Confirmá que la información fue revisada con el cliente.";
     setErrors(nextErrors);
-    return nextErrors.length === 0;
+    return Object.keys(nextErrors).length === 0;
   }
 
   function goNext() {
@@ -140,15 +143,13 @@ export function NewRepairForm({ customers }: { customers: Customer[] }) {
         </ol>
 
         <div className="p-5 sm:p-7">
-          {step === 0 ? <CustomerStep customers={customers} draft={draft} onSelectCustomer={selectCustomer} update={update} /> : null}
-          {step === 1 ? <DeviceStep draft={draft} update={update} /> : null}
-          {step === 2 ? <IntakeStep draft={draft} update={update} /> : null}
-          {step === 3 ? <ConfirmationStep customerName={customerName} draft={draft} update={update} /> : null}
-
-          {errors.length ? <div aria-live="assertive" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4"><p className="text-sm font-bold text-red-800">Revisá estos datos:</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700">{errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
+          {step === 0 ? <CustomerStep customers={customers} draft={draft} errors={errors} onSelectCustomer={selectCustomer} update={update} /> : null}
+          {step === 1 ? <DeviceStep draft={draft} errors={errors} update={update} /> : null}
+          {step === 2 ? <IntakeStep draft={draft} errors={errors} update={update} /> : null}
+          {step === 3 ? <ConfirmationStep customerName={customerName} draft={draft} errors={errors} update={update} /> : null}
 
           <div className="mt-7 flex items-center justify-between border-t border-border pt-5">
-            <Button disabled={step === 0} onClick={() => { setErrors([]); setStep((current) => Math.max(0, current - 1)); }} variant="secondary"><ChevronLeft className="size-4" />Anterior</Button>
+            <Button disabled={step === 0} onClick={() => { setErrors({}); setStep((current) => Math.max(0, current - 1)); }} variant="secondary"><ChevronLeft className="size-4" />Anterior</Button>
             {step < steps.length - 1 ? <Button onClick={goNext}>Continuar<ChevronRight className="size-4" /></Button> : <Button type="submit"><ClipboardCheck className="size-4" />Confirmar recepción</Button>}
           </div>
         </div>
@@ -163,20 +164,20 @@ export function NewRepairForm({ customers }: { customers: Customer[] }) {
 
 type UpdateDraft = <K extends keyof RepairDraft>(key: K, value: RepairDraft[K]) => void;
 
-function CustomerStep({ customers, draft, onSelectCustomer, update }: { customers: Customer[]; draft: RepairDraft; onSelectCustomer: (id: string) => void; update: UpdateDraft }) {
-  return <fieldset><legend className="text-xl font-bold text-primary">1. Identificación del cliente</legend><p className="mt-2 text-sm leading-6 text-muted">Buscá un cliente registrado o completá sus datos básicos.</p><div className="mt-6 space-y-5"><FormField htmlFor="customerId" label="Cliente" required><select className="field-control" id="customerId" onChange={(event) => onSelectCustomer(event.target.value)} value={draft.customerId}><option value="">Seleccionar cliente</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{getCustomerFullName(customer)} · {customer.phone}</option>)}<option value="NEW">+ Registrar nuevo cliente</option></select></FormField><div className="grid gap-4 sm:grid-cols-2"><FormField htmlFor="firstName" label="Nombre" required><input className="field-control" id="firstName" onChange={(event) => update("firstName", event.target.value)} value={draft.firstName} /></FormField><FormField htmlFor="lastName" label="Apellido" required><input className="field-control" id="lastName" onChange={(event) => update("lastName", event.target.value)} value={draft.lastName} /></FormField><FormField htmlFor="phone" label="Teléfono" required><input className="field-control" id="phone" inputMode="tel" onChange={(event) => update("phone", event.target.value)} value={draft.phone} /></FormField><FormField htmlFor="email" label="Correo electrónico"><input className="field-control" id="email" onChange={(event) => update("email", event.target.value)} type="email" value={draft.email} /></FormField></div></div></fieldset>;
+function CustomerStep({ customers, draft, errors, onSelectCustomer, update }: { customers: Customer[]; draft: RepairDraft; errors: RepairFieldErrors; onSelectCustomer: (id: string) => void; update: UpdateDraft }) {
+  return <fieldset><legend className="text-xl font-bold text-primary">1. Identificación del cliente</legend><p className="mt-2 text-sm leading-6 text-muted">Buscá un cliente registrado o completá sus datos básicos.</p><div className="mt-6 space-y-5"><FormField error={errors.customerId} htmlFor="customerId" label="Cliente" required><select aria-describedby={errors.customerId ? "customerId-error" : undefined} aria-invalid={Boolean(errors.customerId)} className={cn("field-control", errors.customerId && "field-control-invalid")} id="customerId" onChange={(event) => onSelectCustomer(event.target.value)} value={draft.customerId}><option value="">Seleccionar cliente</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{getCustomerFullName(customer)} · {customer.phone}</option>)}<option value="NEW">+ Registrar nuevo cliente</option></select></FormField><div className="grid gap-4 sm:grid-cols-2"><FormField error={errors.firstName} htmlFor="firstName" label="Nombre" required><input aria-describedby={errors.firstName ? "firstName-error" : undefined} aria-invalid={Boolean(errors.firstName)} className={cn("field-control", errors.firstName && "field-control-invalid")} id="firstName" onChange={(event) => update("firstName", event.target.value)} value={draft.firstName} /></FormField><FormField error={errors.lastName} htmlFor="lastName" label="Apellido" required><input aria-describedby={errors.lastName ? "lastName-error" : undefined} aria-invalid={Boolean(errors.lastName)} className={cn("field-control", errors.lastName && "field-control-invalid")} id="lastName" onChange={(event) => update("lastName", event.target.value)} value={draft.lastName} /></FormField><FormField error={errors.phone} htmlFor="phone" label="Teléfono" required><input aria-describedby={errors.phone ? "phone-error" : undefined} aria-invalid={Boolean(errors.phone)} className={cn("field-control", errors.phone && "field-control-invalid")} id="phone" inputMode="tel" onChange={(event) => update("phone", event.target.value)} value={draft.phone} /></FormField><FormField htmlFor="email" label="Correo electrónico"><input className="field-control" id="email" onChange={(event) => update("email", event.target.value)} type="email" value={draft.email} /></FormField></div></div></fieldset>;
 }
 
-function DeviceStep({ draft, update }: { draft: RepairDraft; update: UpdateDraft }) {
-  return <fieldset><legend className="text-xl font-bold text-primary">2. Datos del dispositivo</legend><p className="mt-2 text-sm leading-6 text-muted">Registrá los datos necesarios para identificar el equipo sin forzar información que no esté disponible.</p><div className="mt-6 grid gap-4 sm:grid-cols-2"><FormField htmlFor="deviceType" label="Tipo" required><select className="field-control" id="deviceType" onChange={(event) => update("deviceType", event.target.value as DeviceType)} value={draft.deviceType}>{Object.entries(deviceTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></FormField><FormField htmlFor="brand" label="Marca" required><input className="field-control" id="brand" onChange={(event) => update("brand", event.target.value)} placeholder="Ej. Samsung" value={draft.brand} /></FormField><FormField htmlFor="model" label="Modelo" required><input className="field-control" id="model" onChange={(event) => update("model", event.target.value)} placeholder="Ej. Galaxy A14" value={draft.model} /></FormField><FormField htmlFor="color" label="Color"><input className="field-control" id="color" onChange={(event) => update("color", event.target.value)} value={draft.color} /></FormField><FormField htmlFor="serialNumber" label="Número de serie"><input className="field-control" id="serialNumber" onChange={(event) => update("serialNumber", event.target.value)} value={draft.serialNumber} /></FormField><FormField htmlFor="accessories" label="Accesorios entregados"><input className="field-control" id="accessories" onChange={(event) => update("accessories", event.target.value)} placeholder="Cargador, funda, cable..." value={draft.accessories} /></FormField></div></fieldset>;
+function DeviceStep({ draft, errors, update }: { draft: RepairDraft; errors: RepairFieldErrors; update: UpdateDraft }) {
+  return <fieldset><legend className="text-xl font-bold text-primary">2. Datos del dispositivo</legend><p className="mt-2 text-sm leading-6 text-muted">Registrá los datos necesarios para identificar el equipo sin forzar información que no esté disponible.</p><div className="mt-6 grid gap-4 sm:grid-cols-2"><FormField htmlFor="deviceType" label="Tipo" required><select className="field-control" id="deviceType" onChange={(event) => update("deviceType", event.target.value as DeviceType)} value={draft.deviceType}>{Object.entries(deviceTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></FormField><FormField error={errors.brand} htmlFor="brand" label="Marca" required><input aria-describedby={errors.brand ? "brand-error" : undefined} aria-invalid={Boolean(errors.brand)} className={cn("field-control", errors.brand && "field-control-invalid")} id="brand" onChange={(event) => update("brand", event.target.value)} placeholder="Ej. Samsung" value={draft.brand} /></FormField><FormField error={errors.model} htmlFor="model" label="Modelo" required><input aria-describedby={errors.model ? "model-error" : undefined} aria-invalid={Boolean(errors.model)} className={cn("field-control", errors.model && "field-control-invalid")} id="model" onChange={(event) => update("model", event.target.value)} placeholder="Ej. Galaxy A14" value={draft.model} /></FormField><FormField htmlFor="color" label="Color"><input className="field-control" id="color" onChange={(event) => update("color", event.target.value)} value={draft.color} /></FormField><FormField htmlFor="serialNumber" label="Número de serie"><input className="field-control" id="serialNumber" onChange={(event) => update("serialNumber", event.target.value)} value={draft.serialNumber} /></FormField><FormField htmlFor="accessories" label="Accesorios entregados"><input className="field-control" id="accessories" onChange={(event) => update("accessories", event.target.value)} placeholder="Cargador, funda, cable..." value={draft.accessories} /></FormField></div></fieldset>;
 }
 
-function IntakeStep({ draft, update }: { draft: RepairDraft; update: UpdateDraft }) {
-  return <fieldset><legend className="text-xl font-bold text-primary">3. Recepción del equipo</legend><p className="mt-2 text-sm leading-6 text-muted">Documentá el problema informado y el estado físico observado al recibirlo.</p><div className="mt-6 space-y-5"><FormField htmlFor="reportedProblem" label="Problema informado" required><textarea className="field-control min-h-28 resize-y" id="reportedProblem" onChange={(event) => update("reportedProblem", event.target.value)} placeholder="Describí con las palabras del cliente qué sucede con el equipo." value={draft.reportedProblem} /></FormField><FormField htmlFor="physicalCondition" label="Estado físico general" required><select className="field-control" id="physicalCondition" onChange={(event) => update("physicalCondition", event.target.value)} value={draft.physicalCondition}><option>Buen estado general</option><option>Rayones visibles</option><option>Golpes visibles</option><option>Pantalla quebrada</option><option>Daño por humedad visible</option><option>No determinado</option></select></FormField><FormField htmlFor="intakeNotes" label="Observaciones de recepción" hint="Las fotografías reales se incorporarán con Supabase Storage en otra fase."><textarea className="field-control min-h-24 resize-y" id="intakeNotes" onChange={(event) => update("intakeNotes", event.target.value)} value={draft.intakeNotes} /></FormField></div></fieldset>;
+function IntakeStep({ draft, errors, update }: { draft: RepairDraft; errors: RepairFieldErrors; update: UpdateDraft }) {
+  return <fieldset><legend className="text-xl font-bold text-primary">3. Recepción del equipo</legend><p className="mt-2 text-sm leading-6 text-muted">Documentá el problema informado y el estado físico observado al recibirlo.</p><div className="mt-6 space-y-5"><FormField error={errors.reportedProblem} htmlFor="reportedProblem" label="Problema informado" required><textarea aria-describedby={errors.reportedProblem ? "reportedProblem-error" : undefined} aria-invalid={Boolean(errors.reportedProblem)} className={cn("field-control min-h-28 resize-y", errors.reportedProblem && "field-control-invalid")} id="reportedProblem" onChange={(event) => update("reportedProblem", event.target.value)} placeholder="Describí con las palabras del cliente qué sucede con el equipo." value={draft.reportedProblem} /></FormField><FormField error={errors.physicalCondition} htmlFor="physicalCondition" label="Estado físico general" required><select aria-describedby={errors.physicalCondition ? "physicalCondition-error" : undefined} aria-invalid={Boolean(errors.physicalCondition)} className={cn("field-control", errors.physicalCondition && "field-control-invalid")} id="physicalCondition" onChange={(event) => update("physicalCondition", event.target.value)} value={draft.physicalCondition}><option>Buen estado general</option><option>Rayones visibles</option><option>Golpes visibles</option><option>Pantalla quebrada</option><option>Daño por humedad visible</option><option>No determinado</option></select></FormField><FormField htmlFor="intakeNotes" label="Observaciones de recepción" hint="Las fotografías reales se incorporarán con Supabase Storage en otra fase."><textarea className="field-control min-h-24 resize-y" id="intakeNotes" onChange={(event) => update("intakeNotes", event.target.value)} value={draft.intakeNotes} /></FormField></div></fieldset>;
 }
 
-function ConfirmationStep({ customerName, draft, update }: { customerName: string; draft: RepairDraft; update: UpdateDraft }) {
-  return <fieldset><legend className="text-xl font-bold text-primary">4. Confirmación</legend><p className="mt-2 text-sm leading-6 text-muted">Revisá la información antes de completar esta demostración de recepción.</p><div className="mt-6 rounded-xl border border-border bg-surface-soft p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-blue-50 text-accent"><UserRound className="size-5" /></span><div><strong className="text-primary">{customerName}</strong><p className="text-xs text-muted">{draft.phone}{draft.email ? ` · ${draft.email}` : ""}</p></div></div><div className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2"><SummaryRow label="Equipo" value={`${draft.brand} ${draft.model}`} /><SummaryRow label="Tipo" value={deviceTypeLabels[draft.deviceType]} /><SummaryRow label="Estado físico" value={draft.physicalCondition} /><SummaryRow label="Accesorios" value={draft.accessories || "Ninguno informado"} /></div><div className="mt-4"><p className="text-xs font-bold uppercase tracking-wide text-muted">Problema informado</p><p className="mt-1 text-sm leading-6 text-primary">{draft.reportedProblem}</p></div></div><label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-white p-4"><input checked={draft.termsAccepted} className="mt-0.5 size-5 accent-blue-600" onChange={(event) => update("termsAccepted", event.target.checked)} type="checkbox" /><span className="text-sm leading-6 text-primary">Confirmo que los datos fueron revisados con el cliente. En la etapa con persistencia, esta acción congelará la recepción original.</span></label></fieldset>;
+function ConfirmationStep({ customerName, draft, errors, update }: { customerName: string; draft: RepairDraft; errors: RepairFieldErrors; update: UpdateDraft }) {
+  return <fieldset><legend className="text-xl font-bold text-primary">4. Confirmación</legend><p className="mt-2 text-sm leading-6 text-muted">Revisá la información antes de completar esta demostración de recepción.</p><div className="mt-6 rounded-xl border border-border bg-surface-soft p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-blue-50 text-accent"><UserRound className="size-5" /></span><div><strong className="text-primary">{customerName}</strong><p className="text-xs text-muted">{draft.phone}{draft.email ? ` · ${draft.email}` : ""}</p></div></div><div className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2"><SummaryRow label="Equipo" value={`${draft.brand} ${draft.model}`} /><SummaryRow label="Tipo" value={deviceTypeLabels[draft.deviceType]} /><SummaryRow label="Estado físico" value={draft.physicalCondition} /><SummaryRow label="Accesorios" value={draft.accessories || "Ninguno informado"} /></div><div className="mt-4"><p className="text-xs font-bold uppercase tracking-wide text-muted">Problema informado</p><p className="mt-1 text-sm leading-6 text-primary">{draft.reportedProblem}</p></div></div><label className={cn("mt-5 flex cursor-pointer items-start gap-3 rounded-lg border bg-white p-4", errors.termsAccepted ? "border-danger" : "border-border")}><input aria-describedby={errors.termsAccepted ? "termsAccepted-error" : undefined} aria-invalid={Boolean(errors.termsAccepted)} checked={draft.termsAccepted} className="mt-0.5 size-5 accent-blue-600" onChange={(event) => update("termsAccepted", event.target.checked)} type="checkbox" /><span className="text-sm leading-6 text-primary">Confirmo que los datos fueron revisados con el cliente. En la etapa con persistencia, esta acción congelará la recepción original.</span></label>{errors.termsAccepted ? <p className="mt-1.5 text-xs text-danger" id="termsAccepted-error">{errors.termsAccepted}</p> : null}</fieldset>;
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {

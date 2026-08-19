@@ -3,10 +3,10 @@
 import { Mail, UserRound } from "lucide-react";
 import { useActionState, useRef, useState, type FormEvent } from "react";
 
+import { ActionStateFeedback } from "@/components/feedback/ActionStateFeedback";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { registerAction } from "@/features/auth/actions";
-import { AuthStateFeedback } from "@/features/auth/components/AuthStateFeedback";
 import { PasswordInput } from "@/features/auth/components/PasswordInput";
 import { PasswordRequirements } from "@/features/auth/components/PasswordRequirements";
 import { initialAuthActionState, registerSchema, type AuthFieldErrors } from "@/features/auth/schemas";
@@ -53,7 +53,7 @@ export function RegisterForm() {
 
   return (
     <form action={action} className="space-y-2" noValidate onSubmit={validateBeforeSubmit} ref={formRef}>
-      <AuthStateFeedback state={state} />
+      <ActionStateFeedback state={state} />
       <div className="grid gap-2 sm:grid-cols-2">
         {(["firstName", "lastName"] as const).map((id) => {
           const error = errorFor(id);
@@ -80,7 +80,7 @@ export function RegisterForm() {
       <FormField error={errorFor("confirmPassword")} htmlFor="confirmPassword" label="Repetir contraseña" required>
         <PasswordInput ariaDescribedBy={errorFor("confirmPassword") ? "confirmPassword-error" : undefined} autoComplete="new-password" id="confirmPassword" invalid={Boolean(errorFor("confirmPassword"))} name="confirmPassword" onBlur={() => validateField("confirmPassword")} onValueChange={() => touched.has("confirmPassword") && validateField("confirmPassword")} placeholder="Repetí tu contraseña" valid={validFor("confirmPassword")} />
       </FormField>
-      <Button className="w-full" disabled={pending} type="submit">{pending ? "Creando cuenta…" : "Crear cuenta"}</Button>
+      <Button className="w-full" loading={pending} loadingText="Creando cuenta…" type="submit">Crear cuenta</Button>
     </form>
   );
 }

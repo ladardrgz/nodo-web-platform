@@ -1,4 +1,5 @@
 import { AuthConfigurationError } from "@/lib/auth/errors";
+export { getAppUrl } from "@/lib/supabase/app-url";
 
 export interface PublicSupabaseConfig {
   url: string;
@@ -17,8 +18,4 @@ export function requirePublicSupabaseConfig(): PublicSupabaseConfig {
   const config = getPublicSupabaseConfig();
   if (!config) throw new AuthConfigurationError();
   return config;
-}
-
-export function getAppUrl(): string {
-  return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }

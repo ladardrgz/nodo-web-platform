@@ -262,7 +262,44 @@ a {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  .nodo-toast { animation: nodo-toast-enter 220ms ease-out both; }
+  .nodo-toast-exit { animation: nodo-toast-exit 180ms ease-in both; }
+  .nodo-toast-progress { animation: nodo-toast-progress var(--toast-duration, 5000ms) linear both; transform-origin: left; }
+  .nodo-loader-pulse { animation: nodo-loader-flow 1.15s ease-in-out infinite; }
+
+  @keyframes nodo-toast-enter {
+    from { opacity: 0; transform: translate3d(0, -10px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes nodo-toast-exit {
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to { opacity: 0; transform: translate3d(10px, -4px, 0); }
+  }
+
+  @keyframes nodo-toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+  }
+
+  @keyframes nodo-loader-flow {
+    0% { stroke-dashoffset: 105; opacity: 0.35; }
+    35% { opacity: 1; }
+    100% { stroke-dashoffset: -105; opacity: 0.35; }
+  }
 }
+
+.nodo-loader-track,
+.nodo-loader-pulse {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.nodo-loader-track { stroke: currentColor; opacity: 0.22; }
+.nodo-loader-pulse { stroke: var(--cyan); stroke-dasharray: 24 76; stroke-dashoffset: 105; }
 
 .field-control {
   width: 100%;

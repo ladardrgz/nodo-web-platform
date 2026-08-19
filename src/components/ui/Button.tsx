@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import { NodoLoader } from "@/components/ui/NodoLoader";
 import { cn } from "@/lib/cn";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -37,6 +38,8 @@ function buttonClasses(
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  loading?: boolean;
+  loadingText?: string;
 }
 
 export function Button({
@@ -44,14 +47,23 @@ export function Button({
   variant = "primary",
   size = "md",
   type = "button",
+  loading = false,
+  loadingText,
+  children,
+  disabled,
   ...props
 }: ButtonProps) {
   return (
     <button
+      aria-busy={loading || undefined}
       className={buttonClasses(variant, size, className)}
+      disabled={disabled || loading}
       type={type}
       {...props}
-    />
+    >
+      {loading ? <NodoLoader size="sm" /> : null}
+      {loading ? loadingText ?? children : children}
+    </button>
   );
 }
 

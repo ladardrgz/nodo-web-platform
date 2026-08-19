@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { mapAuthError } from "@/lib/auth/messages";
 import { requireRole } from "@/lib/auth/session";
+import type { ActionFeedbackState } from "@/lib/feedback/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAppUrl } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -29,77 +30,86 @@ const inviteSchema = z.object({
   organizationId: z.uuid(),
 });
 
-export async function updateProfileAccessAction(formData: FormData) {
-  await requireRole(["SUPERADMIN"]);
-  const parsed = profileUpdateSchema.safeParse({
-    userId: formData.get("userId"),
-    role: formData.get("role"),
-    status: formData.get("status"),
-    organizationId: formData.get("organizationId"),
-  });
-  if (!parsed.success) redirect("/superadmin?error=invalid_profile");
-
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("admin_update_profile_access", {
-    p_user_id: parsed.data.userId,
-    p_role: parsed.data.role,
-    p_status: parsed.data.status,
-    p_organization_id: parsed.data.organizationId || null,
-  });
-  if (error) redirect("/superadmin?error=update_failed");
-  revalidatePath("/superadmin");
-  redirect("/superadmin?message=profile_updated");
+function logTechnicalAdminError(context: string, error: unknown) {
+  if (process.env.NODE_ENV === "development") console.error(`Error técnico de ${context}:`, error);
 }
 
-export async function createOrganizationAction(formData: FormData) {
+export async function updateProfileAccessAction(_state: ActionFeedbackState, formData: FormData): Promise<ActionFeedbackState> {
+  await requireRole(["SUPERADMIN"]);
+  const parsed = profileUpdateSchema.safeParse({ userId: formData.get("userId"), role: formData.get("role"), status: formData.get("status"), organizationId: formData.get("organizationId") });
+  if (!parsed.success) return { status: "error", feedback: { variant: "warning", title: "Revisá los datos", description: "El rol, el estado o la organización no son válidos." } };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc("admin_update_profile_access", {
+      p_user_id: parsed.data.userId,
+      p_role: parsed.data.role,
+      p_status: parsed.data.status,
+      p_organization_id: parsed.data.organizationId || null,
+    });
+    if (error) throw error;
+    revalidatePath("/superadmin");
+    return { status: "success", feedback: { variant: "success", title: "Cambios guardados", description: "El acceso del usuario se actualizó correctamente." } };
+  } catch (error) {
+    logTechnicalAdminError("actualización de acceso", error);
+    return { status: "error", feedback: { variant: "error", title: "No pudimos guardar los cambios", description: "Volvé a intentarlo en unos minutos." } };
+  }
+}
+
+export async function createOrganizationAction(_state: ActionFeedbackState, formData: FormData): Promise<ActionFeedbackState> {
   await requireRole(["SUPERADMIN"]);
   const parsed = organizationSchema.safeParse({ name: formData.get("name"), slug: formData.get("slug") });
-  if (!parsed.success) redirect("/superadmin?error=invalid_organization");
+  if (!parsed.success) return { status: "error", feedback: { variant: "warning", title: "Revisá la organización", description: "Completá un nombre y un slug válidos." } };
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("admin_create_organization", parsed.data);
-  if (error) redirect("/superadmin?error=organization_failed");
-  revalidatePath("/superadmin");
-  redirect("/superadmin?message=organization_created");
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc("admin_create_organization", parsed.data);
+    if (error) throw error;
+    revalidatePath("/superadmin");
+    return { status: "success", feedback: { variant: "success", title: "Organización creada", description: "La organización ya está disponible en Nodo." } };
+  } catch (error) {
+    logTechnicalAdminError("creación de organización", error);
+    return { status: "error", feedback: { variant: "error", title: "No pudimos crear la organización", description: "Revisá que el slug no esté en uso e intentá nuevamente." } };
+  }
 }
 
-export async function inviteUserAction(formData: FormData) {
+export async function inviteUserAction(_state: ActionFeedbackState, formData: FormData): Promise<ActionFeedbackState> {
   const actor = await requireRole(["SUPERADMIN"]);
-  const parsed = inviteSchema.safeParse({
-    email: formData.get("email"),
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    role: formData.get("role"),
-    organizationId: formData.get("organizationId"),
-  });
-  if (!parsed.success) redirect("/superadmin?error=invalid_invitation");
+  const parsed = inviteSchema.safeParse({ email: formData.get("email"), firstName: formData.get("firstName"), lastName: formData.get("lastName"), role: formData.get("role"), organizationId: formData.get("organizationId") });
+  if (!parsed.success) return { status: "error", feedback: { variant: "warning", title: "Revisá la invitación", description: "Completá correctamente todos los datos del usuario." } };
 
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
-    redirectTo: `${getAppUrl()}/auth/callback?next=/configure-account`,
-    data: { first_name: parsed.data.firstName, last_name: parsed.data.lastName },
-  });
-  if (error || !data.user) redirect("/superadmin?error=invitation_failed");
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
+      redirectTo: `${getAppUrl()}/auth/callback?next=/configure-account`,
+      data: { first_name: parsed.data.firstName, last_name: parsed.data.lastName },
+    });
+    if (error || !data.user) {
+      if (error) logTechnicalAdminError("invitación", error);
+      return { status: "error", feedback: mapAuthError(error, "invite") };
+    }
 
-  const { error: profileError } = await admin.from("profiles").upsert({
-    id: data.user.id,
-    first_name: parsed.data.firstName,
-    last_name: parsed.data.lastName,
-    display_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
-    role: parsed.data.role,
-    status: "ACTIVE",
-    organization_id: parsed.data.organizationId,
-    must_change_password: true,
-  });
-  if (profileError) redirect("/superadmin?error=invitation_profile_failed");
+    const { error: profileError } = await admin.from("profiles").upsert({
+      id: data.user.id,
+      first_name: parsed.data.firstName,
+      last_name: parsed.data.lastName,
+      display_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+      role: parsed.data.role,
+      status: "ACTIVE",
+      organization_id: parsed.data.organizationId,
+      must_change_password: true,
+    });
+    if (profileError) {
+      logTechnicalAdminError("perfil de invitación", profileError);
+      return { status: "error", feedback: { variant: "error", title: "Invitación incompleta", description: "El correo se envió, pero el perfil necesita revisión." } };
+    }
 
-  const supabase = await createSupabaseServerClient();
-  await supabase.rpc("log_audit_event", {
-    p_event_type: "ADMIN_ACCOUNT_INVITED",
-    p_entity_type: "PROFILE",
-    p_entity_id: data.user.id,
-    p_metadata: { role: parsed.data.role, actor: actor.userId },
-  });
-  revalidatePath("/superadmin");
-  redirect("/superadmin?message=user_invited");
+    const supabase = await createSupabaseServerClient();
+    await supabase.rpc("log_audit_event", { p_event_type: "ADMIN_ACCOUNT_INVITED", p_entity_type: "PROFILE", p_entity_id: data.user.id, p_metadata: { role: parsed.data.role, actor: actor.userId } });
+    revalidatePath("/superadmin");
+    return { status: "success", feedback: { variant: "success", title: "Invitación enviada", description: "El correo de invitación fue enviado correctamente." } };
+  } catch (error) {
+    logTechnicalAdminError("invitación", error);
+    return { status: "error", feedback: mapAuthError(error, "invite") };
+  }
 }

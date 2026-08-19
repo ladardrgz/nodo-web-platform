@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useActionState, useRef, useState, type FormEvent } from "react";
 
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { ActionStateFeedback } from "@/components/feedback/ActionStateFeedback";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { loginAction } from "@/features/auth/actions";
 import { initialAuthActionState, loginSchema, type AuthFieldErrors } from "@/features/auth/schemas";
-import { AuthStateFeedback } from "@/features/auth/components/AuthStateFeedback";
 import { PasswordInput } from "@/features/auth/components/PasswordInput";
 import { cn } from "@/lib/cn";
 
@@ -17,12 +17,10 @@ export function LoginForm({
   nextPath,
   configurationMissing,
   googleAuthEnabled = false,
-  initialMessage,
 }: {
   nextPath?: string;
   configurationMissing?: boolean;
   googleAuthEnabled?: boolean;
-  initialMessage?: string;
 }) {
   const [state, action, pending] = useActionState(loginAction, initialAuthActionState);
   const [clientErrors, setClientErrors] = useState<AuthFieldErrors>({});
@@ -58,8 +56,7 @@ export function LoginForm({
     <form action={action} className="space-y-4" noValidate onSubmit={validateBeforeSubmit} ref={formRef}>
       <input name="next" type="hidden" value={nextPath ?? ""} />
       {configurationMissing ? <p className="rounded-lg border border-warning/35 bg-warning-soft px-3 py-2.5 text-xs leading-5 text-warning">Falta configurar Supabase en este entorno. Revisá <code>.env.example</code>.</p> : null}
-      {initialMessage ? <p className="rounded-lg border border-danger/35 bg-danger-soft px-3 py-2.5 text-sm text-danger">{initialMessage}</p> : null}
-      <AuthStateFeedback state={state} />
+      <ActionStateFeedback state={state} />
 
       <FormField error={emailError} htmlFor="email" label="Correo electrónico" required>
         <div className="input-with-leading-icon relative">
@@ -95,7 +92,7 @@ export function LoginForm({
 
       <div className="flex justify-end"><Link className="text-sm font-semibold text-accent hover:text-accent-strong" href="/forgot-password">¿Olvidaste tu contraseña?</Link></div>
 
-      <Button className="w-full" disabled={pending || configurationMissing} type="submit">{pending ? "Iniciando sesión..." : "Iniciar sesión"}</Button>
+      <Button className="w-full" disabled={configurationMissing} loading={pending} loadingText="Iniciando sesión…" type="submit">Iniciar sesión</Button>
 
       <div className="flex items-center gap-3 text-xs text-ink-muted"><span className="h-px flex-1 bg-line" /><span>o</span><span className="h-px flex-1 bg-line" /></div>
 

@@ -3,10 +3,10 @@
 import { Mail } from "lucide-react";
 import { useActionState, useRef, useState, type FormEvent } from "react";
 
+import { ActionStateFeedback } from "@/components/feedback/ActionStateFeedback";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { forgotPasswordAction, resendVerificationAction } from "@/features/auth/actions";
-import { AuthStateFeedback } from "@/features/auth/components/AuthStateFeedback";
 import { forgotPasswordSchema, initialAuthActionState } from "@/features/auth/schemas";
 import { cn } from "@/lib/cn";
 
@@ -43,9 +43,9 @@ export function ForgotPasswordForm() {
   };
   return (
     <form action={action} className="space-y-5" noValidate onSubmit={(event) => setClientError(clientEmailError(event))} ref={formRef}>
-      <AuthStateFeedback state={state} />
+      <ActionStateFeedback state={state} />
       <EmailField error={error} onBlur={validateEmail} onChange={() => touched && validateEmail()} valid={touched && !error} />
-      <Button className="w-full" disabled={pending} size="lg" type="submit">{pending ? "Enviando…" : "Enviar enlace seguro"}</Button>
+      <Button className="w-full" loading={pending} loadingText="Enviando…" size="lg" type="submit">Enviar enlace seguro</Button>
     </form>
   );
 }
@@ -65,9 +65,9 @@ export function ResendVerificationForm({ email }: { email?: string }) {
   };
   return (
     <form action={action} className="space-y-5" noValidate onSubmit={(event) => setClientError(clientEmailError(event))} ref={formRef}>
-      <AuthStateFeedback state={state} />
+      <ActionStateFeedback state={state} />
       <EmailField defaultValue={email} error={error} onBlur={validateEmail} onChange={() => touched && validateEmail()} valid={touched && !error} />
-      <Button className="w-full" disabled={pending} type="submit">{pending ? "Reenviando…" : "Reenviar verificación"}</Button>
+      <Button className="w-full" loading={pending} loadingText="Reenviando…" type="submit">Reenviar verificación</Button>
     </form>
   );
 }

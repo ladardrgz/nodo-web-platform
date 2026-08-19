@@ -1,7 +1,8 @@
-import { Activity, Building2, Gauge, LogOut, Settings, Users } from "lucide-react";
+import { Activity, Building2, Gauge, Settings, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AppLogo } from "@/components/branding/AppLogo";
+import { LogoutSubmitButton } from "@/features/auth/components/LogoutSubmitButton";
 import { logoutAction } from "@/features/auth/actions";
 import type { AuthContext } from "@/types/auth";
 
@@ -29,7 +30,7 @@ export function SuperadminShell({ children, context }: { children: ReactNode; co
         </div>
         <div className="border-t border-white/10 p-4">
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-white/8 p-3"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold">{initials}</span><span className="min-w-0"><strong className="block truncate text-sm">{name}</strong><span className="block text-xs text-app-sidebar-muted">Superadministrador</span></span></div>
-          <form action={logoutAction}><button className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-app-sidebar-muted hover:bg-white/8 hover:text-white" type="submit"><LogOut className="size-4" />Cerrar sesión</button></form>
+          <form action={logoutAction}><LogoutSubmitButton className="min-h-10 w-full rounded-lg text-sm font-semibold text-app-sidebar-muted hover:bg-white/8 hover:text-white" /></form>
         </div>
       </aside>
 

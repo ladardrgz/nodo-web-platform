@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { forgotPasswordSchema, loginSchema, passwordChangeSchema, registerSchema } from "../src/features/auth/schemas";
 import { canAccessBackoffice, canAccessCustomerPortal, canAccessSuperadmin } from "../src/lib/auth/permissions";
 import { isGoogleAuthEnabled } from "../src/lib/auth/features";
+import { getLegacyRecoveryRedirect } from "../src/lib/auth/legacy-recovery";
+import { mapAuthError } from "../src/lib/auth/messages";
 import { roleCanAccessPath, roleDestination, sanitizeInternalRedirect, withAuthFeedback } from "../src/lib/auth/redirects";
 import { getClientIp } from "../src/lib/security/client-ip";
 import { createRateLimitKey } from "../src/lib/security/rate-limit-key";
+import { getAppUrl } from "../src/lib/supabase/app-url";
 
 describe("redirecciones de autenticación", () => {
   it("acepta sólo rutas internas y evita open redirects", () => {
@@ -28,6 +31,42 @@ describe("redirecciones de autenticación", () => {
     expect(withAuthFeedback("/portal?tab=repairs#latest", "session_started")).toBe(
       "/portal?tab=repairs&auth=session_started#latest",
     );
+  });
+
+  it("rescata enlaces recovery antiguos que llegaron por error al Home", () => {
+    const destination = getLegacyRecoveryRedirect(new URL("https://nodo.example/?code=auth-code"));
+    expect(destination?.toString()).toBe("https://nodo.example/auth/callback?code=auth-code&next=%2Freset-password");
+    expect(getLegacyRecoveryRedirect(new URL("https://nodo.example/?q=normal"))).toBeNull();
+    expect(getLegacyRecoveryRedirect(new URL("https://nodo.example/login?code=auth-code"))).toBeNull();
+  });
+});
+
+describe("URL canónica de autenticación", () => {
+  const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const originalAppUrl = process.env.APP_URL;
+  const originalProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const originalVercelUrl = process.env.VERCEL_URL;
+
+  afterEach(() => {
+    if (originalSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL; else process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+    if (originalAppUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = originalAppUrl;
+    if (originalProductionUrl === undefined) delete process.env.VERCEL_PROJECT_PRODUCTION_URL; else process.env.VERCEL_PROJECT_PRODUCTION_URL = originalProductionUrl;
+    if (originalVercelUrl === undefined) delete process.env.VERCEL_URL; else process.env.VERCEL_URL = originalVercelUrl;
+  });
+
+  it("prioriza NEXT_PUBLIC_SITE_URL sobre dominios temporales de Vercel", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://nodo-web-platform.vercel.app/";
+    process.env.APP_URL = "http://localhost:3000";
+    process.env.VERCEL_URL = "nodo-temporal.vercel.app";
+    expect(getAppUrl()).toBe("https://nodo-web-platform.vercel.app");
+  });
+
+  it("usa la URL estable del proyecto antes del deployment temporal", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.APP_URL = "http://localhost:3000";
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "nodo-web-platform.vercel.app";
+    process.env.VERCEL_URL = "nodo-temporal.vercel.app";
+    expect(getAppUrl()).toBe("https://nodo-web-platform.vercel.app");
   });
 });
 
@@ -70,6 +109,24 @@ describe("validación y autorización", () => {
   it("valida recuperación y cambio de contraseña con los mismos esquemas del servidor", () => {
     expect(forgotPasswordSchema.safeParse({ email: "correo-invalido" }).success).toBe(false);
     expect(passwordChangeSchema.safeParse({ password: "Clave-Segura-2026!", confirmPassword: "otra" }).success).toBe(false);
+  });
+});
+
+describe("mensajes de autenticación", () => {
+  it("traduce errores conocidos sin exponer texto técnico", () => {
+    expect(mapAuthError({ message: "Invalid login credentials" }, "login")).toEqual({ variant: "error", title: "No pudimos iniciar sesión", description: "El correo o la contraseña no son correctos." });
+    expect(mapAuthError({ message: "User already registered" }, "register")).toEqual({ variant: "error", title: "Correo ya registrado", description: "Ya existe una cuenta asociada a esta dirección." });
+    expect(mapAuthError({ message: "Token has expired" }, "recovery")).toEqual({ variant: "error", title: "El enlace venció", description: "Solicitá un nuevo enlace para continuar." });
+  });
+
+  it("usa un fallback seguro para errores desconocidos", () => {
+    expect(mapAuthError({ message: "internal database failure" }, "password")).toEqual({ variant: "error", title: "No pudimos actualizar la contraseña", description: "Intentá nuevamente en unos minutos." });
+  });
+
+  it("distingue conexión, rate limit e invitaciones pendientes", () => {
+    expect(mapAuthError(new TypeError("Failed to fetch"), "login").title).toBe("No pudimos conectarnos");
+    expect(mapAuthError({ message: "Email rate limit exceeded" }, "recovery").title).toBe("Demasiados intentos");
+    expect(mapAuthError({ message: "Invitation already pending" }, "invite").title).toBe("Invitación pendiente");
   });
 });
 

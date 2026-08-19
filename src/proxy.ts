@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getLegacyRecoveryRedirect } from "@/lib/auth/legacy-recovery";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 const protectedRoots = [
@@ -22,6 +23,9 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  const legacyRecoveryRedirect = getLegacyRecoveryRedirect(request.nextUrl);
+  if (legacyRecoveryRedirect) return NextResponse.redirect(legacyRecoveryRedirect);
+
   const config = getPublicSupabaseConfig();
   if (!config) return NextResponse.next({ request });
   const hadSupabaseSession = request.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));

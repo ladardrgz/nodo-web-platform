@@ -15,17 +15,7 @@ import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 export const metadata: Metadata = { title: "Iniciar sesión", robots: { index: false, follow: false } };
 
-const errorMessages: Record<string, string> = {
-  callback_failed: "No pudimos completar el acceso. El enlace puede haber vencido.",
-  confirmation_failed: "No pudimos verificar el correo. Solicitá un enlace nuevo.",
-  invalid_confirmation: "El enlace de verificación no es válido.",
-  missing_code: "El proveedor no devolvió un código de acceso válido.",
-  oauth_failed: "No pudimos iniciar sesión con Google.",
-  rate_limited: "Demasiados intentos. Esperá unos minutos antes de volver a probar.",
-  session_expired: "Tu sesión expiró. Volvé a iniciar sesión.",
-};
-
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const context = await getOptionalAuthContext();
   if (context) redirect(roleDestination(context.profile.role, context.profile.must_change_password));
 
@@ -58,7 +48,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <p className="mt-2 text-sm leading-6 text-ink-secondary">Ingresá para continuar a tu espacio de <strong>Nodo</strong>.</p>
 
             <div className="mt-5">
-              <LoginForm configurationMissing={configurationMissing} googleAuthEnabled={googleAuthEnabled} initialMessage={params.error ? errorMessages[params.error] : undefined} nextPath={nextPath} />
+              <LoginForm configurationMissing={configurationMissing} googleAuthEnabled={googleAuthEnabled} nextPath={nextPath} />
             </div>
 
             <p className="mt-5 border-t border-border pt-4 text-center text-sm text-muted">¿Todavía no tenés cuenta? <Link className="font-bold text-accent hover:text-accent-strong" href="/register">Crearme una cuenta</Link></p>

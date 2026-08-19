@@ -8,9 +8,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 const LIMIT = 5;
 
 function fingerprint(password: string): string {
-  const pepper = process.env.PASSWORD_HISTORY_PEPPER?.trim() || process.env.AUTH_RATE_LIMIT_SECRET?.trim();
+  const pepper = process.env.PASSWORD_HISTORY_PEPPER?.trim();
   if (!pepper || pepper.length < 32) {
-    throw new AuthConfigurationError("Falta PASSWORD_HISTORY_PEPPER (o AUTH_RATE_LIMIT_SECRET) de 32 caracteres o más en el entorno del servidor.");
+    throw new AuthConfigurationError("Falta PASSWORD_HISTORY_PEPPER de 32 caracteres o más en el entorno del servidor.");
   }
   return createHmac("sha256", pepper).update(password, "utf8").digest("hex");
 }

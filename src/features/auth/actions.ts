@@ -10,6 +10,7 @@ import {
   type AuthActionState,
 } from "@/features/auth/schemas";
 import { AuthConfigurationError } from "@/lib/auth/errors";
+import { mapAuthError } from "@/lib/auth/messages";
 import { roleCanAccessPath, roleDestination, sanitizeInternalRedirect, withAuthFeedback } from "@/lib/auth/redirects";
 import { requireAuth } from "@/lib/auth/session";
 import { enforceAuthRateLimit, resetAuthRateLimit } from "@/lib/security/rate-limit";
@@ -19,12 +20,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AuthProfile } from "@/types/auth";
 
 function invalidFields(error: { flatten: () => { fieldErrors: Record<string, string[] | undefined> } }): AuthActionState {
-  return { status: "error", message: "Revisá los campos indicados.", fieldErrors: error.flatten().fieldErrors };
+  return { status: "error", fieldErrors: error.flatten().fieldErrors };
 }
 
 function configurationFailure(error: unknown): AuthActionState | null {
   if (error instanceof AuthConfigurationError) {
-    return { status: "error", message: error.message };
+    return { status: "error", feedback: { variant: "error", title: "Autenticación no disponible", description: "La autenticación no está configurada correctamente en este entorno." } };
   }
   return null;
 }
@@ -39,7 +40,7 @@ function rateLimitFailure(retryAfterSeconds: number): AuthActionState {
   const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
   return {
     status: "error",
-    message: `Demasiados intentos. Volvé a probar en ${minutes} min.`,
+    feedback: { variant: "warning", title: "Demasiados intentos", description: `Esperá ${minutes} min antes de volver a intentarlo.` },
     retryAfterSeconds,
   };
 }
@@ -80,17 +81,17 @@ export async function loginAction(
 
     if (error || !data.user) {
       if (error) logTechnicalAuthError("inicio de sesión", error);
-      return { status: "error", message: "El correo o la contraseña son incorrectos." };
+      return { status: "error", feedback: mapAuthError(error, "login") };
     }
 
     const profile = await readProfile(data.user.id);
     if (!profile) {
       await supabase.auth.signOut();
-      return { status: "error", message: "La cuenta no tiene un perfil habilitado. Contactá al soporte." };
+      return { status: "error", feedback: { variant: "error", title: "Cuenta sin perfil", description: "La cuenta no tiene un perfil habilitado. Contactá al soporte." } };
     }
     if (profile.status !== "ACTIVE") {
       await supabase.auth.signOut();
-      return { status: "error", message: "La cuenta está suspendida o deshabilitada." };
+      return { status: "error", feedback: { variant: "error", title: "Cuenta no disponible", description: "La cuenta está suspendida o deshabilitada." } };
     }
 
     await resetAuthRateLimit("LOGIN", parsed.data.email).catch(() => undefined);
@@ -107,7 +108,7 @@ export async function loginAction(
     logTechnicalAuthError("inicio de sesión", error);
     const failure = configurationFailure(error);
     if (failure) return failure;
-    return { status: "error", message: "No pudimos iniciar sesión. Volvé a intentarlo." };
+    return { status: "error", feedback: mapAuthError(error, "login") };
   }
 }
 
@@ -140,24 +141,24 @@ export async function registerAction(
 
     if (error) {
       logTechnicalAuthError("registro", error);
-      return { status: "error", message: "No pudimos crear la cuenta. Volvé a intentarlo." };
+      return { status: "error", feedback: mapAuthError(error, "register") };
     }
     if (!data.user) {
       logTechnicalAuthError("registro", new Error("Supabase no devolvió un usuario después de signUp."));
-      return { status: "error", message: "No pudimos crear la cuenta. Volvé a intentarlo." };
+      return { status: "error", feedback: mapAuthError(error, "register") };
     }
     if (data.user.identities?.length === 0) {
-      return { status: "error", message: "Ya existe una cuenta asociada a este correo." };
+      return { status: "error", feedback: { variant: "error", title: "Correo ya registrado", description: "Ya existe una cuenta asociada a esta dirección." } };
     }
     await rememberPassword(data.user.id, parsed.data.password);
-    if (data.session) redirect("/portal");
-    redirect(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
+    if (data.session) redirect(withAuthFeedback("/portal", "account_created"));
+    redirect(withAuthFeedback(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`, "account_created"));
   } catch (error) {
     unstable_rethrow(error);
     logTechnicalAuthError("registro", error);
     const failure = configurationFailure(error);
     if (failure) return failure;
-    return { status: "error", message: "No pudimos crear la cuenta. Volvé a intentarlo." };
+    return { status: "error", feedback: mapAuthError(error, "register") };
   }
 }
 
@@ -178,18 +179,18 @@ export async function forgotPasswordAction(
     });
     if (error) {
       logTechnicalAuthError("recuperación de contraseña", error);
-      return { status: "error", message: "No pudimos procesar la solicitud. Intentá más tarde." };
+      return { status: "error", feedback: mapAuthError(error, "recovery") };
     }
 
     return {
       status: "success",
-      message: "Si existe una cuenta con ese correo, vas a recibir un enlace para restablecerla.",
+      feedback: { variant: "success", title: "Revisá tu correo", description: "Si existe una cuenta asociada a esa dirección, recibirás un enlace para restablecer tu contraseña." },
     };
   } catch (error) {
     logTechnicalAuthError("recuperación de contraseña", error);
     const failure = configurationFailure(error);
     if (failure) return failure;
-    return { status: "error", message: "No pudimos procesar la solicitud. Intentá más tarde." };
+    return { status: "error", feedback: mapAuthError(error, "recovery") };
   }
 }
 
@@ -212,15 +213,15 @@ export async function resendVerificationAction(
     });
     if (error) {
       logTechnicalAuthError("reenvío de verificación", error);
-      return { status: "error", message: "No pudimos reenviar el correo. Intentá más tarde." };
+      return { status: "error", feedback: mapAuthError(error, "recovery") };
     }
 
-    return { status: "success", message: "Si la cuenta está pendiente, enviamos un nuevo correo." };
+    return { status: "success", feedback: { variant: "success", title: "Correo enviado", description: "Si la cuenta está pendiente, enviamos un nuevo enlace de verificación." } };
   } catch (error) {
     logTechnicalAuthError("reenvío de verificación", error);
     const failure = configurationFailure(error);
     if (failure) return failure;
-    return { status: "error", message: "No pudimos reenviar el correo. Intentá más tarde." };
+    return { status: "error", feedback: mapAuthError(error, "recovery") };
   }
 }
 
@@ -234,6 +235,8 @@ export async function changePasswordAction(
   });
   if (!parsed.success) return invalidFields(parsed.error);
 
+  const flow = String(formData.get("flow") ?? "change");
+
   const context = await requireAuth({ allowPasswordChange: true });
   try {
     const limit = await enforceAuthRateLimit("PASSWORD_RESET", context.userId);
@@ -243,27 +246,31 @@ export async function changePasswordAction(
     const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
     if (error) {
       logTechnicalAuthError("cambio de contraseña", error);
-      return { status: "error", message: "No pudimos actualizar la contraseña." };
+      return { status: "error", feedback: mapAuthError(error, flow === "configure" ? "configure" : "password") };
     }
     await rememberPassword(context.userId, parsed.data.password);
 
     const { error: profileError } = await supabase.rpc("complete_password_change");
     if (profileError) {
       logTechnicalAuthError("finalización de cambio de contraseña", profileError);
-      return { status: "error", message: "La contraseña cambió, pero no pudimos completar el perfil. Contactá al soporte." };
+      return { status: "error", feedback: { variant: "error", title: "Cambio incompleto", description: "La contraseña cambió, pero no pudimos completar el perfil. Contactá al soporte." } };
     }
 
     await audit("AUTH_PASSWORD_CHANGED", { mandatory: context.profile.must_change_password });
-    redirect(withAuthFeedback("/login", "password_changed"));
+    if (flow === "reset" || flow === "configure") await supabase.auth.signOut();
+    const feedback = flow === "configure"
+      ? { variant: "success" as const, title: "Cuenta configurada", description: "Tu contraseña se guardó correctamente. Ya podés iniciar sesión." }
+      : { variant: "success" as const, title: "Contraseña actualizada", description: flow === "reset" ? "Tu contraseña se cambió correctamente. Ya podés iniciar sesión." : "Tu contraseña se cambió correctamente." };
+    return { status: "success", feedback };
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof Error && error.message === "PASSWORD_REUSED") {
-      return { status: "error", message: "No podés reutilizar ninguna de tus últimas 5 contraseñas." };
+      return { status: "error", feedback: { variant: "warning", title: flow === "change" ? "Elegí una contraseña diferente" : "Elegí otra contraseña", description: "No podés reutilizar una de tus últimas 5 contraseñas." } };
     }
     logTechnicalAuthError("cambio de contraseña", error);
     const failure = configurationFailure(error);
     if (failure) return failure;
-    return { status: "error", message: "No pudimos actualizar la contraseña. Volvé a intentarlo." };
+    return { status: "error", feedback: mapAuthError(error, flow === "configure" ? "configure" : "password") };
   }
 }
 
