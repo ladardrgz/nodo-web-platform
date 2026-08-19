@@ -36,7 +36,7 @@ describe("redirecciones de autenticación", () => {
 
   it("rescata enlaces recovery antiguos que llegaron por error al Home", () => {
     const destination = getLegacyRecoveryRedirect(new URL("https://nodo.example/?code=auth-code"));
-    expect(destination?.toString()).toBe("https://nodo.example/auth/callback?code=auth-code&next=%2Freset-password");
+    expect(destination?.toString()).toBe("https://nodo.example/auth/confirm?code=auth-code");
     expect(getLegacyRecoveryRedirect(new URL("https://nodo.example/?q=normal"))).toBeNull();
     expect(getLegacyRecoveryRedirect(new URL("https://nodo.example/login?code=auth-code"))).toBeNull();
   });

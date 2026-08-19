@@ -170,7 +170,7 @@ export async function forgotPasswordAction(
   try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${getAppUrl()}/auth/callback?next=/reset-password`,
+      redirectTo: `${getAppUrl()}/auth/confirm`,
     });
     if (error) {
       logTechnicalAuthError("recuperación de contraseña", error);

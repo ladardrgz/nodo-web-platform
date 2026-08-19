@@ -4,8 +4,7 @@ export function getLegacyRecoveryRedirect(requestUrl: URL): URL | null {
   const code = requestUrl.searchParams.get("code");
   if (!code) return null;
 
-  const callbackUrl = new URL("/auth/callback", requestUrl.origin);
-  callbackUrl.searchParams.set("code", code);
-  callbackUrl.searchParams.set("next", "/reset-password");
-  return callbackUrl;
+  const confirmUrl = new URL("/auth/confirm", requestUrl.origin);
+  confirmUrl.searchParams.set("code", code);
+  return confirmUrl;
 }

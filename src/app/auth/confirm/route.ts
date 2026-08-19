@@ -8,17 +8,35 @@ import type { AuthProfile } from "@/types/auth";
 const allowedTypes = new Set<EmailOtpType>(["email", "signup", "invite", "recovery", "email_change"]);
 
 export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get("code");
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const rawType = request.nextUrl.searchParams.get("type") as EmailOtpType | null;
   const loginUrl = new URL("/login", request.url);
 
-  if (!tokenHash || !rawType || !allowedTypes.has(rawType)) {
+  if (!code && (!tokenHash || !rawType || !allowedTypes.has(rawType))) {
     loginUrl.searchParams.set("error", "invalid_confirmation");
     return NextResponse.redirect(loginUrl);
   }
 
   try {
     const supabase = await createSupabaseServerClient();
+    if (code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error || !data.user) {
+        console.error("Error técnico de confirmación de recovery:", error);
+        const errorMessage = error?.message.toLocaleLowerCase("en-US") ?? "";
+        loginUrl.searchParams.set("error", errorMessage.includes("expired") ? "recovery_link_expired" : "recovery_link_invalid");
+        throw new Error("invalid_recovery_code");
+      }
+
+      return NextResponse.redirect(new URL("/reset-password", request.url));
+    }
+
+    if (!tokenHash || !rawType || !allowedTypes.has(rawType)) {
+      loginUrl.searchParams.set("error", "invalid_confirmation");
+      return NextResponse.redirect(loginUrl);
+    }
+
     const { data, error } = await supabase.auth.verifyOtp({ type: rawType, token_hash: tokenHash });
     if (error || !data.user) {
       const errorMessage = error?.message.toLocaleLowerCase("en-US") ?? "";
