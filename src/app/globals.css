@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-phone-number-input/style.css";
 
 :root {
   --bg-page: #f4f7fb;
@@ -18,14 +19,27 @@
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
   --accent-soft: #e8f1ff;
+  --accent-button: #2563eb;
+  --accent-button-hover: #1d4ed8;
+  --accent-button-active: #1e40af;
   --cyan: #0891b2;
   --shadow-color: 15 35 60;
   --success: #15803d;
   --warning: #b45309;
   --danger: #b91c1c;
+  --danger-button: #b91c1c;
+  --danger-button-hover: #991b1b;
   --success-soft: #ecfdf3;
   --danger-soft: #fff1f2;
   --warning-soft: #fff7ed;
+  --status-violet: #6d28d9;
+  --status-violet-soft: #f3e8ff;
+  --status-amber: #a16207;
+  --status-amber-soft: #fef3c7;
+  --status-orange: #c2410c;
+  --status-orange-soft: #ffedd5;
+  --status-green: #15803d;
+  --status-green-soft: #dcfce7;
   --input-bg: #ffffff;
   --placeholder: #718198;
   /* App context: operational dashboards keep independent surfaces from public pages. */
@@ -74,14 +88,27 @@
   --accent: #60a5fa;
   --accent-strong: #7dd3fc;
   --accent-soft: #172d4e;
+  --accent-button: #2563eb;
+  --accent-button-hover: #1d4ed8;
+  --accent-button-active: #1e40af;
   --cyan: #22d3ee;
   --shadow-color: 0 0 0;
   --success: #4ade80;
   --warning: #fbbf24;
   --danger: #f87171;
+  --danger-button: #b91c1c;
+  --danger-button-hover: #991b1b;
   --success-soft: #102d24;
   --danger-soft: #351a24;
   --warning-soft: #342716;
+  --status-violet: #c4b5fd;
+  --status-violet-soft: #2a2140;
+  --status-amber: #fbbf24;
+  --status-amber-soft: #332812;
+  --status-orange: #fb923c;
+  --status-orange-soft: #3a2117;
+  --status-green: #4ade80;
+  --status-green-soft: #142e22;
   --input-bg: #0b1728;
   --placeholder: #8293aa;
   --app-page: #08111f;
@@ -110,9 +137,14 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-button: var(--accent-button);
+  --color-accent-button-hover: var(--accent-button-hover);
+  --color-accent-button-active: var(--accent-button-active);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-danger-button: var(--danger-button);
+  --color-danger-button-hover: var(--danger-button-hover);
   --color-success-soft: var(--success-soft);
   --color-danger-soft: var(--danger-soft);
   --color-warning-soft: var(--warning-soft);
@@ -190,6 +222,62 @@ a {
   color: var(--app-text);
 }
 
+.owner-shell {
+  --app-page: #f5f7fa;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f1f3f6;
+  --app-card: #ffffff;
+  --app-text: #18212f;
+  --app-text-secondary: #475569;
+  --app-text-muted: #64748b;
+  --app-border: #dfe4ea;
+  --app-sidebar: #151a22;
+  --app-sidebar-active: #263750;
+  --app-sidebar-text: #f8fafc;
+  --app-sidebar-muted: #bac4d1;
+  --bg-page: var(--app-page);
+  --bg-surface: var(--app-surface);
+  --bg-surface-soft: var(--app-surface-soft);
+  --bg-surface-raised: var(--app-card);
+  --text-primary: var(--app-text);
+  --text-secondary: var(--app-text-secondary);
+  --text-muted: var(--app-text-muted);
+  --border: var(--app-border);
+  --border-strong: #c4cbd4;
+  --input-bg: #ffffff;
+  --placeholder: #718096;
+  --primary: var(--text-primary);
+  --primary-soft: var(--text-secondary);
+  --background: var(--bg-page);
+  --surface: var(--bg-surface);
+  --surface-soft: var(--bg-surface-soft);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+}
+
+[data-theme="dark"] .owner-shell {
+  --app-page: #0c0f14;
+  --app-surface: #12171e;
+  --app-surface-soft: #1a2029;
+  --app-card: #171c24;
+  --app-text: #f1f5f9;
+  --app-text-secondary: #cbd5e1;
+  --app-text-muted: #94a3b8;
+  --app-border: #2a313c;
+  --app-sidebar: #090c10;
+  --app-sidebar-active: #19263a;
+  --app-sidebar-text: #f8fafc;
+  --app-sidebar-muted: #aeb9c7;
+  --border-strong: #3c4654;
+  --input-bg: #10151c;
+  --placeholder: #8592a3;
+  --shadow-color: 0 0 0;
+}
+
+.owner-app-background {
+  background: var(--app-page);
+}
+
 .app-shell .ui-card {
   border-color: var(--app-border);
   background-color: var(--app-card);
@@ -200,6 +288,31 @@ a {
   background-color: var(--app-surface);
   color: var(--app-text);
 }
+
+.quick-access-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.quick-access-icon:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 5px 16px rgb(var(--shadow-color) / 10%);
+}
+
+.quick-access-icon:active { transform: translateY(0); }
+.quick-access-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.quick-access-icon:disabled { cursor: pointer; }
 
 .login-background {
   background:
@@ -325,6 +438,25 @@ a {
   padding-left: 3rem;
 }
 
+.input-leading-icon,
+.input-trailing-icon {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+}
+
+.input-leading-icon { left: 0.95rem; }
+.input-trailing-icon { right: 0.95rem; }
+
+.input-with-trailing-icon > .field-control {
+  padding-right: 3rem;
+}
+
 .input-with-leading-and-trailing-icons > .field-control {
   padding-right: 3rem;
   padding-left: 3rem;
@@ -398,6 +530,46 @@ a {
 }
 
 .field-control-invalid:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.owner-phone-input {
+  width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--input-bg);
+  padding: 0 0.75rem;
+  color: var(--text-primary);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.owner-phone-input:hover { border-color: var(--border-strong); }
+.owner-phone-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.owner-phone-input .PhoneInputInput {
+  min-width: 0;
+  min-height: 42px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+}
+.owner-phone-input .PhoneInputInput::placeholder { color: var(--placeholder); }
+.owner-phone-input .PhoneInputCountry { margin-right: 0; }
+.owner-phone-input .PhoneInputCountrySelect:focus + .PhoneInputCountryIcon {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.owner-phone-input .PhoneInputCountryIcon { box-shadow: 0 0 0 1px var(--border-strong); }
+.owner-phone-input .PhoneInputCountrySelectArrow { color: var(--text-muted); opacity: 0.9; }
+.owner-phone-input-invalid { border-color: var(--danger); }
+.owner-phone-input-invalid:focus-within {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
 }

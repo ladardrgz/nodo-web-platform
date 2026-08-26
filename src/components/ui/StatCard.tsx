@@ -11,11 +11,11 @@ interface StatCardProps {
 }
 
 const toneClasses = {
-  blue: "bg-blue-50 text-blue-700",
-  violet: "bg-violet-50 text-violet-700",
-  amber: "bg-amber-50 text-amber-700",
-  orange: "bg-orange-50 text-orange-700",
-  green: "bg-emerald-50 text-emerald-700",
+  blue: "bg-accent-soft text-accent ring-accent/15",
+  violet: "bg-[var(--status-violet-soft)] text-[var(--status-violet)] ring-[color:var(--status-violet)]/15",
+  amber: "bg-[var(--status-amber-soft)] text-[var(--status-amber)] ring-[color:var(--status-amber)]/15",
+  orange: "bg-[var(--status-orange-soft)] text-[var(--status-orange)] ring-[color:var(--status-orange)]/15",
+  green: "bg-[var(--status-green-soft)] text-[var(--status-green)] ring-[color:var(--status-green)]/15",
 };
 
 export function StatCard({
@@ -32,7 +32,7 @@ export function StatCard({
           <p className="text-sm font-semibold text-muted">{label}</p>
           <p className="mt-2 text-3xl font-bold text-primary">{value}</p>
         </div>
-        <span className={`grid size-10 place-items-center rounded-lg ${toneClasses[tone]}`}>
+        <span className={`grid size-10 place-items-center rounded-lg ring-1 ring-inset ${toneClasses[tone]}`}>
           {icon}
         </span>
       </div>

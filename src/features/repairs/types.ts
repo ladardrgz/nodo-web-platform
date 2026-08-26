@@ -33,6 +33,7 @@ export interface RepairOrder {
   customerId: string;
   customerName: string;
   device: Device;
+  deviceTypeName?: string;
   status: RepairStatus;
   intakeStatus: IntakeStatus;
   receivedAt: string;
@@ -42,4 +43,29 @@ export interface RepairOrder {
   intakeNotes: string;
   accessories: string[];
   timeline: RepairTimelineEvent[];
+}
+
+export interface RepairInspectionItem {
+  id: string;
+  key: string;
+  label: string;
+  condition: string;
+  severity: number | null;
+  observation: string;
+  critical: boolean;
+}
+
+export interface RepairPhoto {
+  id: string;
+  url: string;
+  description: string | null;
+  inspectionItemKey: string | null;
+  createdAt: string;
+}
+
+export interface RepairDetail extends RepairOrder {
+  calculatedCondition: string;
+  conditionScore: number;
+  inspection: RepairInspectionItem[];
+  photos: RepairPhoto[];
 }

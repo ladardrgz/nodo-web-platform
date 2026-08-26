@@ -5,10 +5,12 @@ import { DemoDataNotice } from "@/components/ui/DemoDataNotice";
 import { mockInventory } from "@/data/mock-inventory";
 import { InventoryExplorer } from "@/features/inventory/components/InventoryExplorer";
 import { isDemoDataEnabled } from "@/lib/demo";
+import { requireOwnerOrganization } from "@/lib/organizations/setup";
 
 export const metadata: Metadata = { title: "Inventario" };
 
-export default function InventoryPage() {
+export default async function InventoryPage() {
+  await requireOwnerOrganization();
   const demoEnabled = isDemoDataEnabled();
   return <div className="space-y-6"><PageHeader eyebrow="Stock del taller" title="Inventario" description="Consultá existencias y detectá repuestos que requieren atención. Los movimientos se incorporarán más adelante." />{demoEnabled ? <DemoDataNotice /> : null}<InventoryExplorer items={demoEnabled ? mockInventory : []} /></div>;
 }

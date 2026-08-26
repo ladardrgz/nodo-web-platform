@@ -7,27 +7,22 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockCustomers } from "@/data/mock-customers";
-import { mockRepairs } from "@/data/mock-repairs";
+import { getOrganizationCustomer } from "@/features/customers/repository";
 import { deviceTypeLabels, getCustomerFullName } from "@/features/customers/types";
 import { formatDateTime } from "@/lib/format";
-import { isDemoDataEnabled } from "@/lib/demo";
+import { listOrganizationRepairs } from "@/features/repairs/repository";
+import { requireOwnerOrganization } from "@/lib/organizations/setup";
 
 interface CustomerDetailPageProps { params: Promise<{ id: string }> }
 
-export async function generateMetadata({ params }: CustomerDetailPageProps): Promise<Metadata> {
-  if (!isDemoDataEnabled()) return { title: "Cliente" };
-  const { id } = await params;
-  const customer = mockCustomers.find((item) => item.id === id);
-  return { title: customer ? getCustomerFullName(customer) : "Cliente" };
-}
+export const metadata: Metadata = { title: "Cliente" };
 
 export default async function CustomerDetailPage({ params }: CustomerDetailPageProps) {
-  if (!isDemoDataEnabled()) notFound();
+  const { organization } = await requireOwnerOrganization();
   const { id } = await params;
-  const customer = mockCustomers.find((item) => item.id === id);
+  const [customer, organizationRepairs] = await Promise.all([getOrganizationCustomer(organization.id, id), listOrganizationRepairs(organization.id)]);
   if (!customer) notFound();
-  const repairs = mockRepairs.filter((repair) => repair.customerId === customer.id);
+  const repairs = organizationRepairs.filter((repair) => repair.customerId === customer.id);
 
   return (
     <div className="space-y-6">

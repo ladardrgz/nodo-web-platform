@@ -6,6 +6,8 @@ import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 const protectedRoots = [
   "/dashboard",
+  "/initial-setup",
+  "/organization-settings",
   "/repairs",
   "/customers",
   "/inventory",
@@ -16,6 +18,7 @@ const protectedRoots = [
   "/reset-password",
   "/account-blocked",
   "/forbidden",
+  "/auth/mfa",
 ];
 
 function isProtectedPath(pathname: string): boolean {

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 
 import { AuthConfigurationError } from "@/lib/auth/errors";
+import { organizationAllowsOperationalAccess } from "@/lib/auth/organization-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppRole, AuthContext, AuthProfile } from "@/types/auth";
 
@@ -53,5 +54,22 @@ export async function requireAuth(options: { allowPasswordChange?: boolean } = {
 export async function requireRole(allowedRoles: readonly AppRole[]): Promise<AuthContext> {
   const context = await requireAuth();
   if (!allowedRoles.includes(context.profile.role)) forbidden();
+  const supabase = await createSupabaseServerClient();
+
+  if (context.profile.role === "SUPERADMIN") {
+    const [{ data: factors, error: factorsError }, { data: assurance, error: assuranceError }] = await Promise.all([
+      supabase.auth.mfa.listFactors(),
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    ]);
+    if (factorsError || assuranceError) forbidden();
+    const hasVerifiedFactor = factors?.totp.some((factor) => factor.status === "verified");
+    if (hasVerifiedFactor && assurance?.currentLevel !== "aal2") redirect("/auth/mfa?next=/superadmin");
+    return context;
+  }
+
+  if (context.profile.organization_id) {
+    const { data: organization } = await supabase.from("organizations").select("status").eq("id", context.profile.organization_id).maybeSingle();
+    if (!organizationAllowsOperationalAccess(context.profile.role, organization?.status)) redirect("/account-blocked?reason=organization_suspended");
+  }
   return context;
 }

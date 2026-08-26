@@ -1,85 +1,111 @@
-import { Activity, Building2, CircleCheck, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import type { Metadata } from "next";
 
 import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { StatCard } from "@/components/ui/StatCard";
-import { CreateOrganizationForm, InviteUserForm, ProfileAccessForm } from "@/features/superadmin/components/SuperadminForms";
-import { formatDateTime } from "@/lib/format";
+import { ActivityList } from "@/features/superadmin/components/ActivityList";
+import { ContextHelp } from "@/features/superadmin/components/ContextHelp";
+import { OrganizationsList } from "@/features/superadmin/components/OrganizationsList";
+import { CreateOrganizationForm, InviteUserForm } from "@/features/superadmin/components/SuperadminForms";
+import { OrganizationHelp } from "@/features/superadmin/components/OrganizationHelp";
+import { SuperadminOverview } from "@/features/superadmin/components/SuperadminOverview";
+import { SystemStatus } from "@/features/superadmin/components/SystemStatus";
+import { UsersList } from "@/features/superadmin/components/UsersList";
+import { developmentOrganizations, developmentUsers } from "@/features/superadmin/development-data";
+import type { OrganizationListItem, UserListItem } from "@/features/superadmin/types";
+import { requireRole } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Superadmin" };
 
 export default async function SuperadminPage() {
+  const context = await requireRole(["SUPERADMIN"]);
   const supabase = await createSupabaseServerClient();
   const admin = createSupabaseAdminClient();
 
-  const [profileResult, organizationResult, activeResult, auditResult, authResult] = await Promise.all([
-    supabase.from("profiles").select("id,display_name,first_name,last_name,role,status,organization_id,created_at", { count: "exact" }).order("created_at", { ascending: false }).limit(50),
+  const [profileResult, organizationResult, activeResult, auditResult, authResult, storageResult] = await Promise.all([
+    supabase.from("profiles").select("id,display_name,first_name,last_name,role,status,organization_id,created_at", { count: "exact" }).order("created_at", { ascending: false }).limit(1000),
     supabase.from("organizations").select("id,name,slug,status,created_at", { count: "exact" }).order("name"),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("status", "ACTIVE"),
-    supabase.from("audit_events").select("id,event_type,entity_type,created_at,actor_user_id").order("created_at", { ascending: false }).limit(8),
-    admin.auth.admin.listUsers({ page: 1, perPage: 100 }),
+    supabase.from("audit_events").select("id,event_type,entity_type,created_at,actor_user_id", { count: "exact" }).order("created_at", { ascending: false }).limit(5),
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    admin.storage.listBuckets(),
   ]);
 
   const profiles = profileResult.data ?? [];
   const organizations = organizationResult.data ?? [];
   const auditEvents = auditResult.data ?? [];
+  const authUsers = authResult.data?.users ?? [];
+  const authUserMap = new Map(authUsers.map((user) => [user.id, user]));
   const organizationMap = new Map(organizations.map((organization) => [organization.id, organization.name]));
-  const emailMap = new Map((authResult.data?.users ?? []).map((user) => [user.id, user.email]));
+  const organizationOptions = organizations.map(({ id, name, slug }) => ({ id, name, slug }));
+  const organizationRows: OrganizationListItem[] = organizations.map(({ id, name, slug, status }) => ({ id, name, slug, status }));
+  const userRows: UserListItem[] = profiles.map((profile) => {
+    const authUser = authUserMap.get(profile.id);
+    return {
+      id: profile.id,
+      firstName: profile.first_name ?? "",
+      lastName: profile.last_name ?? "",
+      displayName: profile.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Sin nombre",
+      email: authUser?.email ?? "Correo no disponible",
+      role: profile.role,
+      status: profile.status,
+      organizationId: profile.organization_id ?? "",
+      organizationName: profile.organization_id ? organizationMap.get(profile.organization_id) ?? "Organización no disponible" : "Acceso global",
+      invitationPending: Boolean(authUser?.invited_at && !authUser.email_confirmed_at),
+    };
+  });
+  const displayedOrganizations = process.env.NODE_ENV === "development" ? [...organizationRows, ...developmentOrganizations] : organizationRows;
+  const displayedUsers = process.env.NODE_ENV === "development" ? [...userRows, ...developmentUsers] : userRows;
+  const existingEmails = authUsers.flatMap((user) => user.email ? [user.email] : []);
+  const activityRows = auditEvents.map((event) => ({ id: event.id, eventType: event.event_type, entityType: event.entity_type, createdAt: event.created_at }));
   const systemHealthy = !profileResult.error && !organizationResult.error && !activeResult.error && !auditResult.error && !authResult.error;
+  const firstName = context.profile.first_name || context.profile.display_name?.split(" ")[0] || "Superadmin";
 
   return (
     <div className="space-y-8">
-      <section className="scroll-mt-32" id="overview">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Control global de Nodo</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-primary">Resumen de plataforma</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Organizaciones, identidades y actividad general. Los valores provienen directamente de Supabase; no se generan estadísticas ficticias.</p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard description="Entidades registradas en la plataforma." icon={<Building2 className="size-5" />} label="Organizaciones" value={organizationResult.count ?? 0} />
-          <StatCard description="Perfiles de aplicación vinculados a Auth." icon={<Users className="size-5" />} label="Usuarios" value={profileResult.count ?? 0} />
-          <StatCard description="Cuentas habilitadas actualmente." icon={<UserCheck className="size-5" />} label="Usuarios activos" tone="green" value={activeResult.count ?? 0} />
-          <StatCard description="Eventos globales más recientes disponibles." icon={<Activity className="size-5" />} label="Actividad reciente" tone="violet" value={auditEvents.length} />
-        </div>
-      </section>
+      <SuperadminOverview activeUsers={activeResult.count ?? 0} firstName={firstName} organizations={organizationResult.count ?? 0} recentActivity={auditResult.count ?? auditEvents.length} systemHealthy={systemHealthy} users={profileResult.count ?? 0} />
 
       <section className="scroll-mt-32" id="organizations">
-        <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Organizaciones</p><h2 className="mt-1 text-xl font-bold text-primary">Gestión multiempresa</h2></div>
+        <div className="mb-4 flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Organizaciones</p><OrganizationHelp /></div><h2 className="mt-1 text-xl font-bold text-primary">Gestión multiempresa</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Cada organización representa un taller o espacio de trabajo independiente creado para uno de tus clientes administradores.</p></div></div>
         <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
-          <Card className="p-5">
+          <Card className="p-5 sm:p-6">
             <h3 className="font-bold text-primary">Nueva organización</h3>
-            <p className="mt-1 text-xs leading-5 text-muted">El slug identifica a la organización y debe ser único.</p>
-            <CreateOrganizationForm />
+            <p className="mt-1 text-xs leading-5 text-muted">Creá un espacio de trabajo separado para un cliente administrador.</p>
+            <CreateOrganizationForm organizations={organizationOptions} />
           </Card>
           <Card className="overflow-hidden">
             <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Organizaciones registradas</h3></div>
-            {organizations.length ? <div className="divide-y divide-border">{organizations.map((organization) => <div className="flex items-center justify-between gap-4 px-5 py-4" key={organization.id}><div><strong className="text-sm text-primary">{organization.name}</strong><p className="mt-1 font-mono text-[11px] text-muted">{organization.slug}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${organization.status === "ACTIVE" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{organization.status === "ACTIVE" ? "Activa" : "Suspendida"}</span></div>)}</div> : <EmptyState description="Creá la primera organización para comenzar a asignar propietarios." title="No hay organizaciones" />}
+            <OrganizationsList organizations={displayedOrganizations} />
           </Card>
         </div>
       </section>
 
       <section className="scroll-mt-32 space-y-5" id="users">
-        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Usuarios</p><h2 className="mt-1 text-xl font-bold text-primary">Identidades y accesos</h2></div>
+        <div><div className="flex items-center gap-2"><p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Usuarios</p><ContextHelp label="Explicar qué significa invitar un usuario" title="¿Qué significa invitar un usuario?">Invitar un usuario permite crear acceso a Nodo mediante un enlace seguro. El usuario deberá activar su cuenta antes de ingresar. Nodo no debe generar ni almacenar contraseñas permanentes manualmente.</ContextHelp></div><h2 className="mt-1 text-xl font-bold text-primary">Identidades y accesos</h2></div>
         <Card className="p-5">
           <h3 className="flex items-center gap-2 font-bold text-primary"><UserPlus className="size-5 text-accent" />Invitar usuario</h3>
           <p className="mt-1 text-xs leading-5 text-muted">La invitación envía un enlace seguro; Nodo no genera ni almacena contraseñas.</p>
-          <InviteUserForm organizations={organizations} />
+          <InviteUserForm existingEmails={existingEmails} organizations={organizationOptions} />
         </Card>
 
         <Card className="overflow-hidden">
           <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Usuarios y permisos</h3><p className="mt-1 text-xs text-muted">Cada modificación de rol o estado queda auditada.</p></div>
-          {profiles.length ? <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead><tr className="bg-surface-soft text-xs font-bold uppercase tracking-wide text-muted"><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Organización</th><th className="px-5 py-3">Acceso</th></tr></thead><tbody>{profiles.map((profile) => <tr className="border-t border-border" key={profile.id}><td className="px-5 py-4"><strong className="block text-sm text-primary">{profile.display_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Sin nombre"}</strong><span className="block text-xs text-muted">{emailMap.get(profile.id) ?? "Correo no disponible"}</span><span className="font-mono text-[10px] text-slate-400">{profile.id}</span></td><td className="px-5 py-4 text-sm text-muted">{profile.organization_id ? organizationMap.get(profile.organization_id) ?? "Sin acceso" : "Global"}</td><td className="px-5 py-4"><ProfileAccessForm organizations={organizations} profile={{ id: profile.id, role: profile.role, status: profile.status, organizationId: profile.organization_id ?? "" }} /></td></tr>)}</tbody></table></div> : <EmptyState description="Los usuarios aparecerán después del primer registro o invitación." title="No hay perfiles" />}
+          <UsersList currentUserId={context.userId} organizations={organizationOptions} users={displayedUsers} />
         </Card>
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
         <section className="scroll-mt-32" id="activity">
-          <Card className="h-full overflow-hidden"><div className="border-b border-border px-5 py-4"><h2 className="font-bold text-primary">Actividad reciente</h2><p className="mt-1 text-xs text-muted">Eventos sensibles registrados por la plataforma.</p></div>{auditEvents.length ? <ol className="divide-y divide-border">{auditEvents.map((event) => <li className="flex gap-3 px-5 py-4" key={event.id}><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" /><div><strong className="text-sm text-primary">{event.event_type.replaceAll("_", " ")}</strong><p className="mt-1 text-xs text-muted">{event.entity_type} · {formatDateTime(event.created_at)}</p></div></li>)}</ol> : <EmptyState description="Los inicios de sesión y cambios administrativos aparecerán aquí." title="Sin actividad registrada" />}</Card>
+          <Card className="h-full overflow-hidden"><ActivityList events={activityRows} totalItems={auditResult.count ?? activityRows.length} /></Card>
         </section>
         <section className="scroll-mt-32" id="system">
-          <Card className="h-full p-5"><div className="flex items-center gap-3"><span className={`grid size-10 place-items-center rounded-lg ${systemHealthy ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{systemHealthy ? <CircleCheck className="size-5" /> : <ShieldCheck className="size-5" />}</span><div><p className="text-xs font-bold uppercase tracking-wide text-muted">Estado general</p><h2 className="mt-1 font-bold text-primary">{systemHealthy ? "Servicios conectados" : "Requiere revisión"}</h2></div></div><dl className="mt-6 space-y-4 border-t border-border pt-5 text-sm"><div className="flex justify-between gap-3"><dt className="text-muted">Autenticación</dt><dd className="font-semibold text-primary">Supabase Auth</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Acceso de datos</dt><dd className="font-semibold text-primary">RLS activo</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Rol actual</dt><dd className="font-semibold text-primary">SUPERADMIN</dd></div></dl></Card>
+          <SystemStatus services={[
+            { name: "Base de datos", status: profileResult.error || organizationResult.error || auditResult.error ? "ERROR" : "VERIFIED", detail: profileResult.error || organizationResult.error || auditResult.error ? "La comprobación de lectura falló." : "Consultas protegidas respondieron correctamente." },
+            { name: "Autenticación", status: authResult.error ? "ERROR" : "VERIFIED", detail: authResult.error ? "Supabase Auth no respondió correctamente." : "La API administrativa respondió correctamente." },
+            { name: "Storage", status: storageResult.error ? "ERROR" : "VERIFIED", detail: storageResult.error ? "No se pudo verificar Supabase Storage." : "La API de buckets respondió correctamente." },
+            { name: "Correo", status: "NOT_CONFIGURED", detail: "SMTP/PHPMailer propio no está configurado en Nodo." },
+          ]} />
         </section>
       </div>
     </div>

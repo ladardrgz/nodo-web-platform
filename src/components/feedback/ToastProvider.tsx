@@ -36,6 +36,7 @@ const queryFeedback: Record<string, ToastOptions> = {
   recovery_link_expired: { variant: "error", title: "El enlace venció", description: "Solicitá un nuevo enlace para restablecer tu contraseña." },
   recovery_link_invalid: { variant: "error", title: "Enlace inválido", description: "Este enlace no es válido o ya fue utilizado." },
   invitation_link_invalid: { variant: "error", title: "Invitación vencida", description: "Solicitá una nueva invitación para configurar tu cuenta." },
+  organization_setup_completed: { variant: "success", title: "Configuración completada. Tu espacio de trabajo ya está listo." },
 };
 
 const variantStyles: Record<ToastVariant, string> = {
@@ -76,11 +77,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const feedbackKey = url.searchParams.get("auth") ?? url.searchParams.get("error");
+    const feedbackKey = url.searchParams.get("auth") ?? url.searchParams.get("error") ?? url.searchParams.get("setup");
     if (!feedbackKey) return;
     const feedback = queryFeedback[feedbackKey] ?? { variant: "error" as const, title: "No pudimos completar la operación", description: "Intentá nuevamente en unos minutos." };
     url.searchParams.delete("auth");
     url.searchParams.delete("error");
+    url.searchParams.delete("setup");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     toast(feedback);
   }, [toast]);

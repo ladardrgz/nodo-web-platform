@@ -8,7 +8,7 @@ export function canAccessBackoffice(role: AppRole): boolean {
   return role === "OWNER";
 }
 
-export function canAccessSuperadmin(role: AppRole): boolean {
+export function canAccessSuperadmin(role: AppRole | null | undefined): boolean {
   return role === "SUPERADMIN";
 }
 

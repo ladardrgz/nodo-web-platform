@@ -1,0 +1,11 @@
+import { Activity } from "lucide-react";
+import Link from "next/link";
+
+import { ContextHelp } from "@/features/superadmin/components/ContextHelp";
+import { formatArgentinaDateTime } from "@/lib/argentina-time";
+
+export interface AuditEventItem { id: string; eventType: string; entityType: string; createdAt: string }
+
+export function ActivityList({ events, totalItems = events.length }: { events: AuditEventItem[]; totalItems?: number }) {
+  return <div><div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4"><div><div className="flex items-center gap-2"><h2 className="font-bold text-ink">Actividad reciente</h2><ContextHelp label="Explicar la actividad reciente" title="¿Qué muestra Actividad reciente?"><span>Actividad reciente permite revisar las últimas acciones relevantes realizadas dentro de Nodo, como creación o modificación de organizaciones, cambios de usuarios, permisos, accesos y otras operaciones administrativas auditadas.</span><span className="mt-3 block">Sirve para seguimiento, diagnóstico, seguridad y auditoría. Nunca muestra contraseñas, tokens, secretos ni cookies.</span></ContextHelp></div><p className="mt-1 text-xs text-ink-muted">Los cinco eventos más recientes.</p></div></div>{events.length ? <ol className="divide-y divide-line">{events.map((event) => <li className="flex gap-3 px-5 py-4" key={event.id}><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" /><div><strong className="text-sm text-ink">{event.eventType.replaceAll("_", " ")}</strong><p className="mt-1 text-xs text-ink-muted">{event.entityType} · {formatArgentinaDateTime(event.createdAt)}</p></div></li>)}</ol> : <div className="grid min-h-48 place-items-center px-5 py-8 text-center"><div><Activity className="mx-auto size-8 text-ink-muted" /><p className="mt-3 font-bold text-ink">Todavía no hay actividad registrada.</p></div></div>}<div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4"><p className="text-xs text-ink-muted">Mostrando {events.length ? `1–${events.length}` : "0"} de {totalItems} eventos</p><Link className="text-sm font-semibold text-accent hover:underline" href="/superadmin/activity">Ver toda la actividad</Link></div></div>;
+}

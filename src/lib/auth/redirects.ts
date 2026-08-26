@@ -43,7 +43,7 @@ export function roleCanAccessPath(role: AppRole, path: string): boolean {
   if (role === "SUPERADMIN") return pathname === "/superadmin" || pathname.startsWith("/superadmin/");
   if (role === "CUSTOMER") return pathname === "/portal" || pathname.startsWith("/portal/");
   if (role === "OWNER") {
-    return ["/dashboard", "/repairs", "/customers", "/inventory", "/prices"].some(
+    return ["/dashboard", "/initial-setup", "/organization-settings", "/repairs", "/customers", "/inventory", "/prices"].some(
       (root) => pathname === root || pathname.startsWith(`${root}/`),
     );
   }
