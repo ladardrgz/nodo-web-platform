@@ -3,6 +3,28 @@
 Plataforma web de gestión y seguimiento de reparaciones para **servicios técnicos**, diseñada para centralizar el ciclo completo de atención: desde la recepción de un equipo hasta su diagnóstico, presupuesto, reparación, cobro y entrega.
 
 > **Estado:** 🚧 En desarrollo activo
+>
+> ## Screenshots
+
+> Las siguientes capturas corresponden a una versión en desarrollo de Nodo. La interfaz, funcionalidades y datos mostrados pueden modificarse durante la evolución del proyecto.
+
+### Dashboard — Superadministrador
+
+Panel principal del superadministrador, orientado a la administración general de la plataforma y sus organizaciones.
+
+![Dashboard del superadministrador](screenshots/dashboard_super_admin.png)
+
+### Dashboard — Administrador
+
+Panel de administración de una organización, desde donde se gestionan las principales operaciones del servicio técnico.
+
+![Dashboard del administrador](screenshots/dashboard_admin.png)
+
+### Dashboard — Cliente
+
+Panel destinado al cliente final para consultar y realizar el seguimiento de sus equipos y servicios.
+
+![Dashboard del cliente](screenshots/dashboard_cliente.png)
 
 Nodo está planteado como una aplicación **multiusuario y multi-organización**, permitiendo que diferentes servicios técnicos administren sus operaciones de manera independiente dentro de una misma plataforma.
 
