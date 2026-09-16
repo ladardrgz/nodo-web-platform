@@ -18,19 +18,19 @@ Las capturas muestran una versión de desarrollo de Nodo; los datos y la interfa
 
 Administración global de organizaciones, usuarios, catálogos maestros, actividad y salud del sistema.
 
-![Dashboard del superadministrador](screenshots/dashboard_super_admin.png)
+![Dashboard del superadministrador](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_super_admin.png)
 
 ### Dashboard — Propietario
 
 Panel operativo de la organización: prioridades, reparaciones, clientes, inventario, precios y acceso a una nueva reparación.
 
-![Dashboard del propietario](screenshots/dashboard_admin.png)
+![Dashboard del propietario](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_admin.png)
 
 ### Dashboard — Cliente
 
 Portal de seguimiento para que cada cliente consulte sus equipos y servicios.
 
-![Dashboard del cliente](screenshots/dashboard_cliente.png)
+![Dashboard del cliente](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_cliente.png)
 
 ### Cobertura validada en la última revisión
 
