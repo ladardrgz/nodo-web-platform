@@ -50,7 +50,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         greeting={argentinaGreeting()}
         logoUrl={dashboard.logoUrl}
         organizationName={organizationName}
-        showPrimaryAction={dashboard.repairs.length > 0}
+        showPrimaryAction
       />
 
       <OperationalSummary repairs={dashboard.repairs} />

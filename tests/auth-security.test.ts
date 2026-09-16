@@ -14,16 +14,17 @@ import { createRateLimitKey } from "../src/lib/security/rate-limit-key";
 import {
   ORGANIZATION_LOGO_MAX_BYTES,
   normalizeContactPhone,
-  organizationSetupSchema,
   organizationStepOneSchema,
   organizationStepThreeSchema,
   organizationStepTwoSchema,
   validateOrganizationLogo,
 } from "../src/features/organizations/schemas";
+import { normalizeInternationalPhone, organizationSettingsInputSchema, parseStreetAddressLine } from "../src/features/organizations/organization-settings-schema";
 import { canSelectSetupStep, highestUnlockedSetupStep } from "../src/features/organizations/setup-wizard-state";
 import { selectLocality, selectProvince } from "../src/features/organizations/location-state";
 import { formatAddress } from "../src/lib/organizations/address";
 import { getOrganizationDisplayName } from "../src/lib/organizations/display-name";
+import { detectOrganizationLogoMime, validateOrganizationLogoFile, validateOrganizationLogoMetadata } from "../src/lib/organizations/logo-validation";
 import {
   normalizeOrganizationName,
   normalizeOrganizationNameForComparison,
@@ -352,22 +353,90 @@ describe("configuración inicial de organizaciones", () => {
   });
 
   it("normaliza y valida los campos fundamentales", () => {
-    const result = organizationSetupSchema.parse({
+    const result = organizationSettingsInputSchema.parse({
       name: "  Nodo Service Tech  ",
-      tradeName: "Nodo Reparaciones",
-      phone: "+54 370 4000000",
+      phoneCountry: "AR",
+      phoneNationalNumber: "3705234524",
       contactEmail: "CONTACTO@NODO.TEST",
-      address: "Av. Principal 123",
-      locality: "Formosa",
-      province: "Formosa",
-      description: "Servicio técnico con seguimiento claro.",
+      countryId: "AR",
+      provinceId: "34",
+      localityId: "34014020",
+      neighborhoodId: "",
+      addressLine: "Av. 25 de Mayo 1250",
     });
     expect(result.name).toBe("Nodo Service Tech");
     expect(result.contactEmail).toBe("contacto@nodo.test");
+    expect(result.phone.number).toBe("+543705234524");
+    expect(result.address).toEqual({ street: "Av. 25 de Mayo", streetNumber: 1250, withoutNumber: false });
   });
 
   it("rechaza datos incompletos o formatos inválidos", () => {
-    expect(organizationSetupSchema.safeParse({ name: "N", tradeName: "", phone: "abc", contactEmail: "correo", address: "", locality: "", province: "", description: "corta" }).success).toBe(false);
+    expect(organizationSettingsInputSchema.safeParse({ name: "N", phoneCountry: "AR", phoneNationalNumber: "123", contactEmail: "correo", countryId: "", provinceId: "", localityId: "", neighborhoodId: "", addressLine: "sin altura" }).success).toBe(false);
+  });
+
+  it("valida teléfonos por país y exige diez dígitos nacionales para Argentina", () => {
+    expect(normalizeInternationalPhone("AR", "3705234524")?.number).toBe("+543705234524");
+    expect(normalizeInternationalPhone("AR", "370523452")).toBeNull();
+    expect(normalizeInternationalPhone("US", "4155552671")?.number).toBe("+14155552671");
+  });
+
+  it("separa calle y numeración sin perder calles que contienen números", () => {
+    expect(parseStreetAddressLine("Av. 25 de Mayo 1250")).toEqual({ street: "Av. 25 de Mayo", streetNumber: 1250, withoutNumber: false });
+    expect(parseStreetAddressLine("Ruta Nacional 11 S/N")).toEqual({ street: "Ruta Nacional 11", streetNumber: null, withoutNumber: true });
+  });
+
+  it("valida MIME, tamaño y firma binaria de los logos", async () => {
+    const pngHeader = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    expect(detectOrganizationLogoMime(pngHeader)).toBe("image/png");
+    expect(validateOrganizationLogoMetadata({ size: 1024, type: "image/svg+xml" })).toContain("no es compatible");
+    expect(validateOrganizationLogoMetadata({ size: 2 * 1024 * 1024 + 1, type: "image/png" })).toContain("2 MB");
+    expect(await validateOrganizationLogoFile(new File([pngHeader], "logo.png", { type: "image/png" }))).toBeNull();
+    expect(await validateOrganizationLogoFile(new File([pngHeader], "falso.jpg", { type: "image/jpeg" }))).toContain("no coincide");
+  });
+
+  it("actualiza solo la organización autenticada mediante RPC y confirma antes de guardar", () => {
+    const action = readFileSync(join(process.cwd(), "src/features/organizations/actions.ts"), "utf8");
+    const form = readFileSync(join(process.cwd(), "src/features/organizations/components/OrganizationSettingsForm.tsx"), "utf8");
+    const migration = readFileSync(join(process.cwd(), "supabase/migrations/202608270001_owner_organization_settings.sql"), "utf8");
+    expect(action).toContain("requireOwnerOrganization()");
+    expect(action).toContain('formData.get("truthfulConfirmation")');
+    expect(action).not.toContain('formData.get("organizationId")');
+    expect(action).toContain('rpc("update_owner_organization_settings"');
+    expect(form).not.toContain("window.confirm");
+    expect(form).toContain("¿Confirmás que los datos ingresados son verídicos?");
+    expect(migration).toContain("public.current_organization_id()");
+    expect(migration).toContain("ORGANIZATION_UPDATED");
+  });
+});
+
+describe("baja reversible de cuentas", () => {
+  const lifecycle = readFileSync(join(process.cwd(), "supabase/migrations/202608270002_account_deletion_lifecycle.sql"), "utf8");
+
+  it("mantiene una ventana de recuperación de 30 días y evita solicitudes duplicadas", () => {
+    expect(lifecycle).toContain("now() + interval '30 days'");
+    expect(lifecycle).toContain("account_deletion_pending_organization_unique");
+    expect(lifecycle).toContain("account_deletion_pending_user_unique");
+    expect(lifecycle).toContain("cancel_my_pending_deletion");
+  });
+
+  it("bloquea la baja cuando existen recepciones o equipos pendientes", () => {
+    expect(lifecycle).toContain("status = 'CONFIRMED'");
+    expect(lifecycle).toContain("OPEN_RECEPTIONS");
+    expect(lifecycle).toContain("return jsonb_build_object");
+  });
+
+  it("preserva el histórico y no permite que un perfil suspendido conserve permisos", () => {
+    expect(lifecycle).toContain("p.status = 'ACTIVE'");
+    expect(lifecycle).toContain("o.status = 'ACTIVE'");
+    expect(lifecycle).toContain("on delete set null");
+    expect(lifecycle).not.toContain("delete from public.device_receptions");
+    expect(lifecycle).not.toContain("delete from public.audit_events");
+  });
+
+  it("deriva identidad y organización desde auth sin aceptar IDs arbitrarios", () => {
+    expect(lifecycle).toContain("where id = auth.uid()");
+    expect(lifecycle).toContain("v_profile.organization_id");
+    expect(lifecycle).not.toContain("p_organization_id");
   });
 });
 
@@ -440,13 +509,12 @@ describe("dashboard operativo del OWNER", () => {
     expect(ownerActivityLabel("REPAIR_STATUS_CHANGED")).toBe("Estado de reparación actualizado");
   });
 
-  it("pagina auditoría por organización y mantiene demos fuera de producción", () => {
+  it("pagina auditoría por organización sin incorporar datos de demostración", () => {
     const dataSource = readFileSync(join(process.cwd(), "src/features/dashboard/data.ts"), "utf8");
-    const demoGuard = readFileSync(join(process.cwd(), "src/lib/demo.ts"), "utf8");
     expect(dataSource).toContain("OWNER_ACTIVITY_PAGE_SIZE = 5");
     expect(dataSource).toContain('.eq("organization_id", organization.id)');
     expect(dataSource).toContain('.order("created_at", { ascending: false })');
-    expect(demoGuard).toContain('process.env.NODE_ENV === "development"');
+    expect(dataSource).not.toContain("mock");
   });
 
   it("comparte el contexto OWNER y consulta actividad con conteo en una sola operación normal", () => {
@@ -459,13 +527,14 @@ describe("dashboard operativo del OWNER", () => {
     expect(dataSource).not.toContain("searchParams.organization_id");
   });
 
-  it("mantiene una sola CTA principal y usa el empty state como alternativa", () => {
+  it("mantiene una sola CTA principal visible incluso sin reparaciones", () => {
     const dashboard = readFileSync(join(process.cwd(), "src/app/(admin)/dashboard/page.tsx"), "utf8");
     const hero = readFileSync(join(process.cwd(), "src/features/dashboard/components/OwnerDashboardHero.tsx"), "utf8");
     const recent = readFileSync(join(process.cwd(), "src/features/dashboard/components/RecentRepairs.tsx"), "utf8");
-    expect(dashboard).toContain("showPrimaryAction={dashboard.repairs.length > 0}");
+    expect(dashboard).toContain("showPrimaryAction");
+    expect(dashboard).not.toContain("showPrimaryAction={dashboard.repairs.length > 0}");
     expect(hero).toContain("Nueva reparación");
-    expect(recent).toContain("Crear primera reparación");
+    expect(recent).not.toContain("Crear primera reparación");
     expect(dashboard).not.toContain("Nueva reparación");
   });
 
@@ -476,12 +545,12 @@ describe("dashboard operativo del OWNER", () => {
     expect(header).not.toMatch(/badge[^\n]*[1-9]/i);
   });
 
-  it("mantiene el dashboard oscuro neutral y el azul como acento", () => {
+  it("mantiene el dashboard oscuro Oxford Blue y el azul como acento", () => {
     const styles = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
     expect(styles).toContain('[data-theme="dark"] .owner-shell');
-    expect(styles).toContain("--app-page: #0c0f14");
-    expect(styles).toContain("--app-card: #171c24");
-    expect(styles).toContain("--accent-button: #2563eb");
+    expect(styles).toContain("--app-page: #192338");
+    expect(styles).toContain("--app-card: #223555");
+    expect(styles).toContain("--accent-button: #547eae");
   });
 });
 
@@ -513,12 +582,12 @@ describe("agenda del OWNER", () => {
     expect(groupAgendaEvents(events).get("2026-08-19")?.map((event) => event.id)).toEqual(["early", "late", "all-day"]);
   });
 
-  it("consulta por rango y organización y mantiene eventos ficticios sólo en desarrollo", () => {
+  it("declara explícitamente el estado vacío mientras agenda no tenga contrato persistido", () => {
     const repository = readFileSync(join(process.cwd(), "src/features/dashboard/agenda/repository.ts"), "utf8");
     const calendar = readFileSync(join(process.cwd(), "src/features/dashboard/agenda/AgendaCalendar.tsx"), "utf8");
-    expect(repository).toContain("event.organizationId === organizationId");
-    expect(repository).toContain("event.date >= start && event.date <= end");
-    expect(repository).toContain("isDemoDataEnabled");
+    expect(repository).toContain("No hay todavía un contrato persistido de agenda");
+    expect(repository).toContain("return []");
+    expect(repository).not.toContain("development-events");
     expect(calendar).toContain('aria-current={day.isToday ? "date" : undefined}');
     expect(calendar).toContain("ArrowLeft");
     expect(calendar).toContain("ArrowDown");
@@ -538,6 +607,12 @@ describe("clima del OWNER", () => {
       { name: "San Rafael", admin1: "Mendoza", country_code: "AR", latitude: -34.6177, longitude: -68.3301 },
     ], { ...formosa, locality: "San Rafael", province: "Mendoza" })).toEqual({ latitude: -34.6177, longitude: -68.3301 });
     expect(resolveOpenMeteoCoordinates([], formosa)).toBeNull();
+  });
+
+  it("reconoce los prefijos administrativos que devuelve Open-Meteo", () => {
+    expect(resolveOpenMeteoCoordinates([
+      { name: "Ciudad de Formosa", admin1: "Provincia de Formosa", country_code: "AR", latitude: -26.18489, longitude: -58.17313 },
+    ], formosa)).toEqual({ latitude: -26.18489, longitude: -58.17313 });
   });
 
   it("envía sólo contexto geográfico mínimo y fija unidades argentinas", () => {

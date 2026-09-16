@@ -2,28 +2,34 @@
 @import "react-phone-number-input/style.css";
 
 :root {
-  --bg-page: #f4f7fb;
+  --bg-page: #f7f9fb;
   --bg-surface: #ffffff;
-  --bg-surface-soft: #edf4fc;
+  --bg-surface-soft: #e8ecef;
   --bg-surface-raised: #ffffff;
-  --text-primary: #172337;
-  --text-secondary: #42526a;
-  --text-muted: #5f7088;
-  --border: #d9e2ef;
-  --border-strong: #bdcadb;
-  --brand-surface: #172337;
-  --brand-surface-soft: #22324b;
-  --brand-contrast: #f8fbff;
-  --brand-muted: #c5d2e3;
-  --brand-subtle: #aebdd1;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: #e8f1ff;
-  --accent-button: #2563eb;
-  --accent-button-hover: #1d4ed8;
-  --accent-button-active: #1e40af;
-  --cyan: #0891b2;
-  --shadow-color: 15 35 60;
+  --surface-hover: #eef3f7;
+  --surface-active: #dce8f2;
+  --text-primary: #1c2b48;
+  --text-secondary: #455a77;
+  --text-muted: #64748b;
+  --text-disabled: #8b9aad;
+  --border: #c4d8e5;
+  --border-strong: #9ebbd2;
+  --brand-surface: #1c2b48;
+  --brand-surface-soft: #263b61;
+  --brand-contrast: #f7fafc;
+  --brand-muted: #c4d8e5;
+  --brand-subtle: #a7c7e7;
+  --accent: #416c9b;
+  --accent-strong: #31587f;
+  --accent-soft: #e4eff8;
+  --accent-button: #416c9b;
+  --accent-button-hover: #31587f;
+  --accent-button-active: #264664;
+  --highlight: #e3a166;
+  --highlight-strong: #c97843;
+  --focus-ring: #8eb1d1;
+  --cyan: #4d8eaa;
+  --shadow-color: 28 43 72;
   --success: #15803d;
   --warning: #b45309;
   --danger: #b91c1c;
@@ -41,9 +47,9 @@
   --status-green: #15803d;
   --status-green-soft: #dcfce7;
   --input-bg: #ffffff;
-  --placeholder: #718198;
+  --placeholder: #70839a;
   /* App context: operational dashboards keep independent surfaces from public pages. */
-  --app-page: #f3f6fb;
+  --app-page: #f7f9fb;
   --app-surface: #ffffff;
   --app-surface-soft: #eef3f9;
   --app-card: #ffffff;
@@ -51,8 +57,9 @@
   --app-text-secondary: #42526a;
   --app-text-muted: #5f7088;
   --app-border: #d9e2ef;
-  --app-sidebar: #172337;
-  --app-sidebar-active: #2a405e;
+  --app-sidebar: #1c2b48;
+  --app-sidebar-hover: #263b61;
+  --app-sidebar-active: #314f75;
   --app-sidebar-text: #f8fbff;
   --app-sidebar-muted: #c5d2e3;
   --app-background-overlay: rgb(243 246 251 / 94%);
@@ -71,27 +78,33 @@
 }
 
 [data-theme="dark"] {
-  --bg-page: #08111f;
-  --bg-surface: #101c2f;
-  --bg-surface-soft: #15243a;
-  --bg-surface-raised: #18273e;
-  --text-primary: #eef4fc;
-  --text-secondary: #c3d0e0;
-  --text-muted: #9fb0c5;
-  --border: #2b3d56;
-  --border-strong: #40546f;
-  --brand-surface: #0c1728;
-  --brand-surface-soft: #17263d;
-  --brand-contrast: #f4f8ff;
-  --brand-muted: #c5d2e3;
-  --brand-subtle: #aebdd1;
-  --accent: #60a5fa;
-  --accent-strong: #7dd3fc;
-  --accent-soft: #172d4e;
-  --accent-button: #2563eb;
-  --accent-button-hover: #1d4ed8;
-  --accent-button-active: #1e40af;
-  --cyan: #22d3ee;
+  --bg-page: #192338;
+  --bg-surface: #1e2f4f;
+  --bg-surface-soft: #24395d;
+  --bg-surface-raised: #223555;
+  --surface-hover: #2a4168;
+  --surface-active: #31487a;
+  --text-primary: #d9e1f1;
+  --text-secondary: #b9c8df;
+  --text-muted: #9fb3d0;
+  --text-disabled: #7387a3;
+  --border: #365174;
+  --border-strong: #50709b;
+  --brand-surface: #192338;
+  --brand-surface-soft: #1e2f4f;
+  --brand-contrast: #d9e1f1;
+  --brand-muted: #b9c8df;
+  --brand-subtle: #8fb3e2;
+  --accent: #8fb3e2;
+  --accent-strong: #b5d0f2;
+  --accent-soft: #31487a;
+  --accent-button: #547eae;
+  --accent-button-hover: #6b96c6;
+  --accent-button-active: #416a9a;
+  --highlight: #efb276;
+  --highlight-strong: #f5c796;
+  --focus-ring: #8fb3e2;
+  --cyan: #8fb3e2;
   --shadow-color: 0 0 0;
   --success: #4ade80;
   --warning: #fbbf24;
@@ -109,21 +122,22 @@
   --status-orange-soft: #3a2117;
   --status-green: #4ade80;
   --status-green-soft: #142e22;
-  --input-bg: #0b1728;
-  --placeholder: #8293aa;
-  --app-page: #08111f;
-  --app-surface: #101c2f;
-  --app-surface-soft: #15243a;
-  --app-card: #18273e;
-  --app-text: #eef4fc;
-  --app-text-secondary: #c3d0e0;
-  --app-text-muted: #9fb0c5;
-  --app-border: #2b3d56;
-  --app-sidebar: #0c1728;
-  --app-sidebar-active: #1d3350;
-  --app-sidebar-text: #f4f8ff;
-  --app-sidebar-muted: #c5d2e3;
-  --app-background-overlay: rgb(8 17 31 / 95%);
+  --input-bg: #192b47;
+  --placeholder: #91a5c0;
+  --app-page: #192338;
+  --app-surface: #1e2f4f;
+  --app-surface-soft: #24395d;
+  --app-card: #223555;
+  --app-text: #d9e1f1;
+  --app-text-secondary: #b9c8df;
+  --app-text-muted: #9fb3d0;
+  --app-border: #365174;
+  --app-sidebar: #192338;
+  --app-sidebar-hover: #24395d;
+  --app-sidebar-active: #31487a;
+  --app-sidebar-text: #d9e1f1;
+  --app-sidebar-muted: #a9bcda;
+  --app-background-overlay: rgb(25 35 56 / 95%);
 }
 
 @theme inline {
@@ -133,6 +147,8 @@
   --color-surface: var(--surface);
   --color-surface-soft: var(--surface-soft);
   --color-surface-raised: var(--bg-surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
@@ -140,6 +156,8 @@
   --color-accent-button: var(--accent-button);
   --color-accent-button-hover: var(--accent-button-hover);
   --color-accent-button-active: var(--accent-button-active);
+  --color-highlight: var(--highlight);
+  --color-highlight-strong: var(--highlight-strong);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
@@ -169,6 +187,7 @@
   --color-app-text-muted: var(--app-text-muted);
   --color-app-border: var(--app-border);
   --color-app-sidebar: var(--app-sidebar);
+  --color-app-sidebar-hover: var(--app-sidebar-hover);
   --color-app-sidebar-active: var(--app-sidebar-active);
   --color-app-sidebar-text: var(--app-sidebar-text);
   --color-app-sidebar-muted: var(--app-sidebar-muted);
@@ -208,7 +227,7 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid rgb(37 99 235 / 22%);
+  outline: 3px solid color-mix(in srgb, var(--focus-ring) 48%, transparent);
   outline-offset: 2px;
 }
 
@@ -223,18 +242,19 @@ a {
 }
 
 .owner-shell {
-  --app-page: #f5f7fa;
+  --app-page: #f7f9fb;
   --app-surface: #ffffff;
-  --app-surface-soft: #f1f3f6;
+  --app-surface-soft: #e8ecef;
   --app-card: #ffffff;
-  --app-text: #18212f;
-  --app-text-secondary: #475569;
+  --app-text: #1c2b48;
+  --app-text-secondary: #455a77;
   --app-text-muted: #64748b;
-  --app-border: #dfe4ea;
-  --app-sidebar: #151a22;
-  --app-sidebar-active: #263750;
-  --app-sidebar-text: #f8fafc;
-  --app-sidebar-muted: #bac4d1;
+  --app-border: #c4d8e5;
+  --app-sidebar: #1c2b48;
+  --app-sidebar-hover: #263b61;
+  --app-sidebar-active: #314f75;
+  --app-sidebar-text: #f7fafc;
+  --app-sidebar-muted: #c4d8e5;
   --bg-page: var(--app-page);
   --bg-surface: var(--app-surface);
   --bg-surface-soft: var(--app-surface-soft);
@@ -243,7 +263,7 @@ a {
   --text-secondary: var(--app-text-secondary);
   --text-muted: var(--app-text-muted);
   --border: var(--app-border);
-  --border-strong: #c4cbd4;
+  --border-strong: #9ebbd2;
   --input-bg: #ffffff;
   --placeholder: #718096;
   --primary: var(--text-primary);
@@ -256,21 +276,22 @@ a {
 }
 
 [data-theme="dark"] .owner-shell {
-  --app-page: #0c0f14;
-  --app-surface: #12171e;
-  --app-surface-soft: #1a2029;
-  --app-card: #171c24;
-  --app-text: #f1f5f9;
-  --app-text-secondary: #cbd5e1;
-  --app-text-muted: #94a3b8;
-  --app-border: #2a313c;
-  --app-sidebar: #090c10;
-  --app-sidebar-active: #19263a;
-  --app-sidebar-text: #f8fafc;
-  --app-sidebar-muted: #aeb9c7;
-  --border-strong: #3c4654;
-  --input-bg: #10151c;
-  --placeholder: #8592a3;
+  --app-page: #192338;
+  --app-surface: #1e2f4f;
+  --app-surface-soft: #24395d;
+  --app-card: #223555;
+  --app-text: #d9e1f1;
+  --app-text-secondary: #b9c8df;
+  --app-text-muted: #9fb3d0;
+  --app-border: #365174;
+  --app-sidebar: #192338;
+  --app-sidebar-hover: #24395d;
+  --app-sidebar-active: #31487a;
+  --app-sidebar-text: #d9e1f1;
+  --app-sidebar-muted: #a9bcda;
+  --border-strong: #50709b;
+  --input-bg: #192b47;
+  --placeholder: #91a5c0;
   --shadow-color: 0 0 0;
 }
 
@@ -322,15 +343,15 @@ a {
 
 .public-shell {
   background:
-    radial-gradient(circle at 12% -8%, rgb(6 182 212 / 10%), transparent 25rem),
-    radial-gradient(circle at 88% 5%, rgb(37 99 235 / 10%), transparent 28rem),
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 25rem),
+    radial-gradient(circle at 88% 5%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 28rem),
     var(--bg-page);
 }
 
 [data-theme="dark"] .public-shell {
   background:
-    radial-gradient(circle at 12% -8%, rgb(6 182 212 / 12%), transparent 25rem),
-    radial-gradient(circle at 88% 5%, rgb(37 99 235 / 16%), transparent 28rem),
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 25rem),
+    radial-gradient(circle at 88% 5%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 28rem),
     var(--bg-page);
 }
 
@@ -340,7 +361,7 @@ a {
 }
 
 .node-grid {
-  background-image: linear-gradient(rgb(37 99 235 / 5%) 1px, transparent 1px), linear-gradient(90deg, rgb(37 99 235 / 5%) 1px, transparent 1px);
+  background-image: linear-gradient(color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidPhoneNumber, parsePhoneNumber } from "react-phone-number-input";
+import { isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js/max";
 
 export const ORGANIZATION_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 export const ORGANIZATION_LOGO_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -135,19 +135,3 @@ export function validateOrganizationLogo(file: Pick<File, "size" | "type"> | nul
   if (file.size > ORGANIZATION_LOGO_MAX_BYTES) return "El archivo supera el tamaño máximo permitido de 2 MB.";
   return null;
 }
-
-const requiredText = (label: string, min: number, max: number) =>
-  z.string().trim().min(min, `${label} es obligatorio.`).max(max, `${label} es demasiado extenso.`);
-
-export const organizationSetupSchema = z.object({
-  name: requiredText("El nombre de la organización", 2, 120),
-  tradeName: requiredText("El nombre comercial", 2, 120),
-  phone: requiredText("El teléfono", 6, 30).regex(/^[+()\d\s.-]+$/, "Ingresá un teléfono válido."),
-  contactEmail: z.string().trim().min(1, "El email de contacto es obligatorio.").max(254).email("Ingresá un email válido.").toLowerCase(),
-  address: requiredText("La dirección", 3, 180),
-  locality: requiredText("La localidad", 2, 100),
-  province: requiredText("La provincia", 2, 100),
-  description: requiredText("La descripción", 10, 600),
-});
-
-export type OrganizationSetupValues = z.infer<typeof organizationSetupSchema>;

@@ -1,24 +1,24 @@
 "use client";
 
-import { ChevronDown, LoaderCircle, MapPin, Navigation, Route } from "lucide-react";
+import { MapPin, Navigation, Route } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useRef, useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/feedback/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { GeographySelect as SelectControl } from "@/features/organizations/components/GeographySelect";
 import { normalizeAddressText, organizationStepThreeSchema } from "@/features/organizations/schemas";
 import { selectCountry, selectLocality, selectProvince } from "@/features/organizations/location-state";
 import {
-  initialOrganizationStepThreeState,
   loadLocalitiesAction,
   loadNeighborhoodsAction,
   loadProvincesAction,
   saveOrganizationStepThreeAction,
-  type OrganizationStepThreeActionState,
 } from "@/features/organizations/step-three-actions";
+import { initialOrganizationStepThreeState, type OrganizationStepThreeActionState } from "@/features/organizations/action-states";
 import { cn } from "@/lib/cn";
-import type { GeographyOption, InitialSetupLocationData } from "@/types/geography";
+import type { InitialSetupLocationData } from "@/types/geography";
 
 type FieldName = "countryId" | "provinceId" | "localityId" | "neighborhoodId" | "street" | "streetNumber" | "floor" | "apartment" | "postalCode" | "reference";
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -37,52 +37,6 @@ function validationErrors(values: LocationValues, neighborhoodRequired: boolean)
 
 function describedBy(...ids: Array<string | false | undefined>): string | undefined {
   return ids.filter(Boolean).join(" ") || undefined;
-}
-
-function SelectControl({
-  disabled,
-  error,
-  id,
-  loading,
-  name,
-  onBlur,
-  onChange,
-  options,
-  placeholder,
-  value,
-}: {
-  disabled?: boolean;
-  error?: string;
-  id: FieldName;
-  loading?: boolean;
-  name: string;
-  onBlur: () => void;
-  onChange: (value: string) => void;
-  options: GeographyOption[];
-  placeholder: string;
-  value: string;
-}) {
-  return (
-    <div className="input-with-trailing-icon relative">
-      <select
-        aria-describedby={error ? `${id}-error` : undefined}
-        aria-invalid={Boolean(error)}
-        className={cn("field-control appearance-none", error && "field-control-invalid")}
-        disabled={disabled || loading}
-        id={id}
-        name={name}
-        onBlur={onBlur}
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        <option value="">{loading ? "Cargando..." : placeholder}</option>
-        {options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-      </select>
-      {loading
-        ? <LoaderCircle aria-hidden="true" className="input-trailing-icon animate-spin" />
-        : <ChevronDown aria-hidden="true" className="input-trailing-icon" />}
-    </div>
-  );
 }
 
 interface OrganizationStepThreeFormProps {

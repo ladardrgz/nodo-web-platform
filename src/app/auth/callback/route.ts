@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (profileError || !rawProfile) throw new Error("missing_profile");
 
     const profile = rawProfile as AuthProfile;
-    if (profile.status !== "ACTIVE") return NextResponse.redirect(new URL("/account-blocked", request.url));
+    if (profile.status !== "ACTIVE") return NextResponse.redirect(new URL(profile.status === "SUSPENDED" ? "/account-pending-deletion" : "/account-blocked", request.url));
 
     await supabase.rpc("log_audit_event", {
       p_event_type: "AUTH_CALLBACK_COMPLETED",

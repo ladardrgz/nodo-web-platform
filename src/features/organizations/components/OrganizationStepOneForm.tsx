@@ -15,11 +15,8 @@ import {
   organizationStepOneSchema,
   validateOrganizationLogo,
 } from "@/features/organizations/schemas";
-import {
-  initialOrganizationStepOneState,
-  saveOrganizationStepOneAction,
-  type OrganizationStepOneActionState,
-} from "@/features/organizations/step-one-actions";
+import { initialOrganizationStepOneState, type OrganizationStepOneActionState } from "@/features/organizations/action-states";
+import { saveOrganizationStepOneAction } from "@/features/organizations/step-one-actions";
 import { cn } from "@/lib/cn";
 import type { OwnerOrganization } from "@/types/organization";
 

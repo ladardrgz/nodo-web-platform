@@ -17,6 +17,7 @@ const protectedRoots = [
   "/change-password",
   "/reset-password",
   "/account-blocked",
+  "/account-pending-deletion",
   "/forbidden",
   "/auth/mfa",
 ];

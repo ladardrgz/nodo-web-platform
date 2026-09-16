@@ -13,6 +13,8 @@ interface IconInputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export function IconInput({ leadingIcon, trailingAdornment, onClear, clearLabel = "Limpiar campo", className, value, ...props }: IconInputProps) {
+  // Canonical control for fields with icons: its wrapper owns the reserved text area.
+  // Do not recreate this pattern with an absolutely positioned icon and ad-hoc input padding.
   const hasClear = Boolean(onClear && String(value ?? ""));
   const hasTrailing = hasClear || Boolean(trailingAdornment);
   const wrapperClass = leadingIcon && hasTrailing ? "input-with-leading-and-trailing-icons" : leadingIcon ? "input-with-leading-icon" : hasTrailing ? "input-with-trailing-icon" : undefined;

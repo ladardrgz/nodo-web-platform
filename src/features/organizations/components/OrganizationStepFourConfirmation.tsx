@@ -9,12 +9,8 @@ import { formatPhoneNumberIntl } from "react-phone-number-input";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import {
-  finalizeInitialSetupAction,
-  initialFinalizeInitialSetupState,
-  type FinalizeInitialSetupState,
-  type IncompleteSetupSection,
-} from "@/features/organizations/finalize-setup-action";
+import { initialFinalizeInitialSetupState, type FinalizeInitialSetupState, type IncompleteSetupSection } from "@/features/organizations/action-states";
+import { finalizeInitialSetupAction } from "@/features/organizations/finalize-setup-action";
 import { getOrganizationDisplayName } from "@/lib/organizations/display-name";
 import { cn } from "@/lib/cn";
 import type { InitialSetupConfirmationData } from "@/types/geography";

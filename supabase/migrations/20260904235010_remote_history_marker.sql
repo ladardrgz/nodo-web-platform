@@ -1,0 +1,2 @@
+-- History marker for a migration already applied directly to the linked development project.
+-- Intentionally empty: its effects are captured from the remote schema by the subsequent canonical migration.

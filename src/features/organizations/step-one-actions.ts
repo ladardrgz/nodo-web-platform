@@ -7,7 +7,7 @@ import {
   organizationStepOneSchema,
   validateOrganizationLogo,
 } from "@/features/organizations/schemas";
-import type { ActionFeedbackState } from "@/lib/feedback/types";
+import type { OrganizationStepOneActionState } from "@/features/organizations/action-states";
 import { ORGANIZATION_LOGO_BUCKET } from "@/lib/organizations/logo";
 import { requireOwnerOrganization } from "@/lib/organizations/setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,13 +17,6 @@ const LOGO_EXTENSIONS: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
-
-export interface OrganizationStepOneActionState extends ActionFeedbackState {
-  completedStep?: 1;
-  fieldErrors?: Partial<Record<"legalName" | "commercialName" | "logo", string[]>>;
-}
-
-export const initialOrganizationStepOneState: OrganizationStepOneActionState = { status: "idle" };
 
 export async function saveOrganizationStepOneAction(
   _previousState: OrganizationStepOneActionState,

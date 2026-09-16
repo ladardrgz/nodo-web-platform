@@ -31,6 +31,21 @@ function normalized(value: string | undefined): string {
   return (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es-AR");
 }
 
+function comparablePlaceName(value: string | undefined): string {
+  return normalized(value)
+    .replace(/^(?:ciudad|provincia|departamento|partido|municipio|estado|region|región)\s+de\s+/u, "")
+    .trim();
+}
+
+function samePlace(actual: string | undefined, expected: string): boolean {
+  const actualName = comparablePlaceName(actual);
+  const expectedName = comparablePlaceName(expected);
+  return Boolean(actualName && expectedName)
+    && (actualName === expectedName
+      || actualName.endsWith(` ${expectedName}`)
+      || expectedName.endsWith(` ${actualName}`));
+}
+
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -51,8 +66,8 @@ export function resolveOpenMeteoCoordinates(results: OpenMeteoGeocodingResult[],
     && finite(result.longitude)
     && normalized(result.country_code) === normalized(location.countryCode),
   );
-  const exact = candidates.find((result) => normalized(result.name) === normalized(location.locality) && normalized(result.admin1) === normalized(location.province));
-  const sameProvince = candidates.find((result) => normalized(result.admin1) === normalized(location.province));
+  const exact = candidates.find((result) => samePlace(result.name, location.locality) && samePlace(result.admin1, location.province));
+  const sameProvince = candidates.find((result) => samePlace(result.admin1, location.province));
   const selected = exact ?? sameProvince ?? null;
   return selected ? { latitude: selected.latitude!, longitude: selected.longitude! } : null;
 }

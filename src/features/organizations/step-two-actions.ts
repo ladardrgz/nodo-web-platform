@@ -3,16 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { organizationStepTwoSchema } from "@/features/organizations/schemas";
-import type { ActionFeedbackState } from "@/lib/feedback/types";
+import type { OrganizationStepTwoActionState } from "@/features/organizations/action-states";
 import { requireOwnerOrganization } from "@/lib/organizations/setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-export interface OrganizationStepTwoActionState extends ActionFeedbackState {
-  completedStep?: 2;
-  fieldErrors?: Partial<Record<"phone" | "contactEmail", string[]>>;
-}
-
-export const initialOrganizationStepTwoState: OrganizationStepTwoActionState = { status: "idle" };
 
 export async function saveOrganizationStepTwoAction(
   _previousState: OrganizationStepTwoActionState,

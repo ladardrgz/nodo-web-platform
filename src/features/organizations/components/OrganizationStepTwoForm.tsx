@@ -11,11 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ContextHelp } from "@/features/superadmin/components/ContextHelp";
 import { normalizeContactEmail, organizationStepTwoSchema } from "@/features/organizations/schemas";
-import {
-  initialOrganizationStepTwoState,
-  saveOrganizationStepTwoAction,
-  type OrganizationStepTwoActionState,
-} from "@/features/organizations/step-two-actions";
+import { initialOrganizationStepTwoState, type OrganizationStepTwoActionState } from "@/features/organizations/action-states";
+import { saveOrganizationStepTwoAction } from "@/features/organizations/step-two-actions";
 import { cn } from "@/lib/cn";
 import type { OwnerOrganization } from "@/types/organization";
 

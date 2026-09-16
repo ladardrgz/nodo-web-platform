@@ -39,11 +39,14 @@ export async function getOptionalAuthContext(): Promise<AuthContext | null> {
   }
 }
 
-export async function requireAuth(options: { allowPasswordChange?: boolean } = {}): Promise<AuthContext> {
+export async function requireAuth(options: { allowPasswordChange?: boolean; allowPendingDeletion?: boolean } = {}): Promise<AuthContext> {
   const context = await getOptionalAuthContext();
   if (!context) redirect("/login");
 
-  if (context.profile.status !== "ACTIVE") redirect("/account-blocked");
+  if (context.profile.status !== "ACTIVE" && !options.allowPendingDeletion) {
+    if (context.profile.status === "SUSPENDED") redirect("/account-pending-deletion");
+    redirect("/account-blocked");
+  }
   if (context.profile.must_change_password && !options.allowPasswordChange) {
     redirect("/change-password");
   }
@@ -69,7 +72,11 @@ export async function requireRole(allowedRoles: readonly AppRole[]): Promise<Aut
 
   if (context.profile.organization_id) {
     const { data: organization } = await supabase.from("organizations").select("status").eq("id", context.profile.organization_id).maybeSingle();
-    if (!organizationAllowsOperationalAccess(context.profile.role, organization?.status)) redirect("/account-blocked?reason=organization_suspended");
+    if (!organizationAllowsOperationalAccess(context.profile.role, organization?.status)) {
+      const { data: deletion } = await supabase.rpc("get_my_pending_deletion");
+      if (Array.isArray(deletion) && deletion.length > 0) redirect("/account-pending-deletion");
+      redirect("/account-blocked?reason=organization_suspended");
+    }
   }
   return context;
 }

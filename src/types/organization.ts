@@ -4,6 +4,9 @@ export interface OwnerOrganization {
   trade_name: string | null;
   logo_path: string | null;
   phone: string | null;
+  phone_country_code: string | null;
+  phone_calling_code: string | null;
+  phone_national_number: string | null;
   contact_email: string | null;
   address: string | null;
   locality: string | null;

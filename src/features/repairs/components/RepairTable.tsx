@@ -2,10 +2,10 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { RepairOrder } from "@/features/repairs/types";
+import type { ServiceOrderListItem } from "@/modules/service-orders/domain/repositories/ServiceOrderRepository";
 import { formatDate } from "@/lib/format";
 
-export function RepairTable({ repairs }: { repairs: RepairOrder[] }) {
+export function RepairTable({ repairs }: { repairs: ServiceOrderListItem[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse text-left">
@@ -21,10 +21,10 @@ export function RepairTable({ repairs }: { repairs: RepairOrder[] }) {
         </thead>
         <tbody>
           {repairs.map((repair) => (
-            <tr className="border-b border-border/80 last:border-0 hover:bg-slate-50/80" key={repair.id}>
+            <tr className="border-b border-border/80 last:border-0 transition-colors hover:bg-surface-hover" key={repair.id}>
               <td className="px-5 py-4">
                 <Link className="font-bold text-primary hover:text-accent" href={`/repairs/${repair.id}`}>
-                  {repair.orderNumber}
+                  #{String(repair.orderNumber).padStart(6, "0")}
                 </Link>
               </td>
               <td className="px-5 py-4 text-sm font-semibold text-primary">{repair.customerName}</td>
@@ -33,9 +33,9 @@ export function RepairTable({ repairs }: { repairs: RepairOrder[] }) {
                 <span className="text-xs text-muted">{repair.reportedProblem}</span>
               </td>
               <td className="px-5 py-4 text-sm text-muted">{formatDate(repair.receivedAt)}</td>
-              <td className="px-5 py-4"><StatusBadge compact status={repair.status} /></td>
+              <td className="px-5 py-4"><StatusBadge compact label={repair.status.name} status={repair.status.code} /></td>
               <td className="px-5 py-4 text-right">
-                <Link aria-label={`Abrir ${repair.orderNumber}`} className="inline-grid size-9 place-items-center rounded-lg text-muted hover:bg-blue-50 hover:text-accent" href={`/repairs/${repair.id}`}>
+                <Link aria-label={`Abrir ${repair.orderNumber}`} className="inline-grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-hover hover:text-accent focus-visible:outline-2 focus-visible:outline-accent" href={`/repairs/${repair.id}`}>
                   <ArrowRight className="size-4" />
                 </Link>
               </td>

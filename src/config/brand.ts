@@ -4,7 +4,8 @@ export const brand = {
   subtitle: "Gestión para servicios técnicos",
   tagline: "Trazabilidad clara para cada reparación",
   assets: {
-    logo: "/images/img_logo_nodo.png",
+    // Invalida la caché de Next/Image y del navegador cuando se reemplaza el archivo del logo.
+    logo: "/images/img_logo_nodo.png?v=20260827-2223",
     banner: "/images/img_banner_nodo.png",
     dashboardBackground: "/images/img_dashboard_admin.png",
     loginBackground: "/images/img_login.png",

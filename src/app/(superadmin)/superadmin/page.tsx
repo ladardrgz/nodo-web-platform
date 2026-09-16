@@ -10,7 +10,6 @@ import { OrganizationHelp } from "@/features/superadmin/components/OrganizationH
 import { SuperadminOverview } from "@/features/superadmin/components/SuperadminOverview";
 import { SystemStatus } from "@/features/superadmin/components/SystemStatus";
 import { UsersList } from "@/features/superadmin/components/UsersList";
-import { developmentOrganizations, developmentUsers } from "@/features/superadmin/development-data";
 import type { OrganizationListItem, UserListItem } from "@/features/superadmin/types";
 import { requireRole } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -55,8 +54,6 @@ export default async function SuperadminPage() {
       invitationPending: Boolean(authUser?.invited_at && !authUser.email_confirmed_at),
     };
   });
-  const displayedOrganizations = process.env.NODE_ENV === "development" ? [...organizationRows, ...developmentOrganizations] : organizationRows;
-  const displayedUsers = process.env.NODE_ENV === "development" ? [...userRows, ...developmentUsers] : userRows;
   const existingEmails = authUsers.flatMap((user) => user.email ? [user.email] : []);
   const activityRows = auditEvents.map((event) => ({ id: event.id, eventType: event.event_type, entityType: event.entity_type, createdAt: event.created_at }));
   const systemHealthy = !profileResult.error && !organizationResult.error && !activeResult.error && !auditResult.error && !authResult.error;
@@ -76,7 +73,7 @@ export default async function SuperadminPage() {
           </Card>
           <Card className="overflow-hidden">
             <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Organizaciones registradas</h3></div>
-            <OrganizationsList organizations={displayedOrganizations} />
+            <OrganizationsList organizations={organizationRows} />
           </Card>
         </div>
       </section>
@@ -91,7 +88,7 @@ export default async function SuperadminPage() {
 
         <Card className="overflow-hidden">
           <div className="border-b border-border px-5 py-4"><h3 className="font-bold text-primary">Usuarios y permisos</h3><p className="mt-1 text-xs text-muted">Cada modificación de rol o estado queda auditada.</p></div>
-          <UsersList currentUserId={context.userId} organizations={organizationOptions} users={displayedUsers} />
+          <UsersList currentUserId={context.userId} organizations={organizationOptions} users={userRows} />
         </Card>
       </section>
 

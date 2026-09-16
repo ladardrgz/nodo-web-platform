@@ -1,7 +1,6 @@
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
-import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -34,7 +33,6 @@ export function RecentRepairs({ repairs }: { repairs: RepairOrder[] }) {
         </ol>
       ) : (
         <EmptyState
-          action={<ButtonLink href="/repairs/new"><Plus aria-hidden="true" className="size-4" />Crear primera reparación</ButtonLink>}
           description="Cuando registres una orden, vas a encontrar aquí sus datos y estado más reciente."
           title="Todavía no registraste reparaciones"
         />

@@ -3,19 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { organizationStepThreeSchema } from "@/features/organizations/schemas";
-import type { ActionFeedbackState } from "@/lib/feedback/types";
+import type { OrganizationStepThreeActionState } from "@/features/organizations/action-states";
 import { requireOwnerOrganization } from "@/lib/organizations/setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { GeographyOption } from "@/types/geography";
-
-type LocationField = "countryId" | "provinceId" | "localityId" | "neighborhoodId" | "street" | "streetNumber" | "floor" | "apartment" | "postalCode" | "reference";
-
-export interface OrganizationStepThreeActionState extends ActionFeedbackState {
-  completedStep?: 3;
-  fieldErrors?: Partial<Record<LocationField, string[]>>;
-}
-
-export const initialOrganizationStepThreeState: OrganizationStepThreeActionState = { status: "idle" };
 
 interface OptionsResult {
   options: GeographyOption[];
@@ -24,7 +15,7 @@ interface OptionsResult {
 
 async function allowGeographyRead() {
   const { organization } = await requireOwnerOrganization({ allowIncompleteSetup: true });
-  return !organization.initial_setup_completed && organization.initial_setup_step >= 3;
+  return organization.initial_setup_completed || organization.initial_setup_step >= 3;
 }
 
 export async function loadProvincesAction(countryId: string): Promise<OptionsResult> {

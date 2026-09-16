@@ -1,16 +1,8 @@
 "use server";
 
 import { getOptionalAuthContext } from "@/lib/auth/session";
-import type { ActionFeedbackState } from "@/lib/feedback/types";
+import type { FinalizeInitialSetupState, IncompleteSetupSection } from "@/features/organizations/action-states";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-export type IncompleteSetupSection = "ORGANIZATION" | "CONTACT" | "LOCATION";
-
-export interface FinalizeInitialSetupState extends ActionFeedbackState {
-  incompleteSection?: IncompleteSetupSection;
-}
-
-export const initialFinalizeInitialSetupState: FinalizeInitialSetupState = { status: "idle" };
 
 const incompleteMessages: Record<IncompleteSetupSection, string> = {
   ORGANIZATION: "Falta completar información de Organización.",

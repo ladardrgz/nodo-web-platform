@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AuthContext } from "@/types/auth";
 import type { OwnerOrganization } from "@/types/organization";
 
-const ORGANIZATION_COLUMNS = "id,name,trade_name,logo_path,phone,contact_email,address,locality,province,description,status,initial_setup_completed,initial_setup_step";
+const ORGANIZATION_COLUMNS = "id,name,trade_name,logo_path,phone,phone_country_code,phone_calling_code,phone_national_number,contact_email,address,locality,province,description,status,initial_setup_completed,initial_setup_step";
 
 export interface OwnerOrganizationContext {
   context: AuthContext;

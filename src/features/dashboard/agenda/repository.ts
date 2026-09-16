@@ -1,8 +1,6 @@
 import "server-only";
 
-import { buildDevelopmentAgendaEvents } from "@/features/dashboard/agenda/development-events";
 import type { AgendaEvent } from "@/features/dashboard/agenda/types";
-import { isDemoDataEnabled } from "@/lib/demo";
 
 export async function listAgendaEventsForRange({
   end,
@@ -15,11 +13,11 @@ export async function listAgendaEventsForRange({
   start: string;
   todayKey: string;
 }): Promise<AgendaEvent[]> {
-  // Punto único de reemplazo: la persistencia futura consultará un rango completo
-  // y derivará organizationId de la sesión, nunca desde parámetros del navegador.
-  if (!isDemoDataEnabled()) return [];
-
-  return buildDevelopmentAgendaEvents(organizationId, todayKey)
-    .filter((event) => event.organizationId === organizationId && event.date >= start && event.date <= end)
-    .sort((left, right) => left.date.localeCompare(right.date) || (left.time ?? "99:99").localeCompare(right.time ?? "99:99"));
+  // No hay todavía un contrato persistido de agenda en el esquema vigente.
+  // La pantalla representa correctamente ese estado vacío, sin inventar turnos.
+  void end;
+  void organizationId;
+  void start;
+  void todayKey;
+  return [];
 }

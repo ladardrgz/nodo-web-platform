@@ -1,75 +1,631 @@
 "use client";
 
-/* Blob URLs are local previews and cannot benefit from Next image optimization. */
-/* eslint-disable @next/next/no-img-element */
-
-import { AlertTriangle, Camera, Check, ChevronLeft, ChevronRight, ClipboardCheck, Plus, Trash2, UserRound, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+} from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { cn } from "@/lib/cn";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { createCustomerAction, createCustomBrandAction, createCustomDeviceTypeAction, saveDeviceAction, confirmReceptionAction, registerReceptionPhotoAction } from "@/features/repairs/reception/actions";
-import { ACCESSORIES, ATTRIBUTE_FIELDS, COLORS } from "@/features/repairs/reception/catalogs";
-import { calculateCondition, createInspection, INSPECTION_STATUSES } from "@/features/repairs/reception/inspection";
+import {
+  createCustomerAction,
+  createCustomBrandAction,
+  createCustomDeviceColorAction,
+  createCustomDeviceModelAction,
+  createCustomDeviceTypeAction,
+  createDynamicCatalogOptionAction,
+  saveDeviceAction,
+  confirmReceptionAction,
+} from "@/features/repairs/reception/actions";
+import { calculateCondition } from "@/features/repairs/reception/inspection";
 import { CatalogModal } from "@/features/repairs/reception/CatalogModal";
-import { SearchableSelect } from "@/features/repairs/reception/SearchableSelect";
-import type { CatalogOption, DeviceDraft, EvidenceDraft, InspectionItemDraft, MutationResult, ReceptionCustomer, ReceptionFormData } from "@/features/repairs/reception/types";
+import { WIZARD_STEPS } from "@/features/repairs/reception/constants/reception";
+import { validateDevice as validateDeviceDraft } from "@/features/repairs/reception/validation/deviceValidation";
+import { validateReception } from "@/features/repairs/reception/validation/receptionValidation";
+import { useCustomerStep } from "@/features/repairs/reception/hooks/useCustomerStep";
+import { useDeviceCatalogs } from "@/features/repairs/reception/hooks/useDeviceCatalogs";
+import { useReceptionPhotos } from "@/features/repairs/reception/hooks/useReceptionPhotos";
+import { CustomerStep } from "@/features/repairs/reception/steps/CustomerStep";
+import { DeviceStep } from "@/features/repairs/reception/steps/DeviceStep";
+import { IntakeStep } from "@/features/repairs/reception/steps/IntakeStep";
+import { ConfirmationStep } from "@/features/repairs/reception/steps/ConfirmationStep";
+import type {
+  DeviceModelOption,
+  DeviceColorOption,
+  DeviceDraft,
+  DeviceStepTwoSnapshot,
+  DynamicDeviceField,
+  InspectionItemDraft,
+  IntakeMetadata,
+  ReceptionFormData,
+} from "@/features/repairs/reception/types";
+import type { WizardErrors } from "@/features/repairs/reception/wizard-types";
 
-const steps = ["Cliente", "Dispositivo", "Recepción", "Confirmación"];
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
-const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const initialDevice: DeviceDraft = { typeId: "", attributeGroup: "OTHER", brandId: "", model: "", year: "", color: "", customColor: "", serialNumber: "", imei1: "", imei2: "", attributes: {}, memories: [], storageUnits: [], accessories: [] };
-type Errors = Record<string, string | undefined>;
-type CustomerDraft = Omit<ReceptionCustomer, "id">;
+type DynamicCatalogRequest = {
+  sourceKey: NonNullable<DynamicDeviceField["dataSourceKey"]>;
+  fieldKey?: string;
+  parentId?: string;
+  grandparentId?: string;
+  storageIndex?: number;
+  accessory?: boolean;
+};
 
-function nameError(value: string, field: "nombre" | "apellido") { const clean = value.trim().replace(/\s+/g, " "); if (!clean) return `Ingresá el ${field}.`; if (clean.length < 2) return `El ${field} debe tener al menos 2 caracteres.`; if (!/^[\p{L}\p{M}'’.-]+(?:\s[\p{L}\p{M}'’.-]+)*$/u.test(clean)) return `El ${field} contiene caracteres no válidos.`; }
-function emailError(value: string) { const clean = value.trim(); if (clean && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean)) return "Ingresá un correo electrónico válido."; }
-
-export function NewRepairForm({ initialData }: { initialData: ReceptionFormData }) {
+// ============================================================================
+// CONFIGURACIÓN GENERAL DEL FLUJO DE RECEPCIÓN
+// Pasos visibles del formulario y restricciones globales de fotografías.
+// ============================================================================
+const initialDevice: DeviceDraft = {
+  typeId: "",
+  attributeGroup: "OTHER",
+  brandId: "",
+  modelId: "",
+  model: "",
+  year: "",
+  color: "",
+  customColor: "",
+  serialNumber: "",
+  imei1: "",
+  imei2: "",
+  imeis: [],
+  attributes: {},
+  memories: [],
+  storageUnits: [],
+  accessories: [],
+  ports: [],
+};
+// ============================================================================
+// FORMULARIO PRINCIPAL DE NUEVA RECEPCIÓN
+// Coordina los 4 pasos, las validaciones, persistencia y confirmación final.
+// ============================================================================
+export function NewRepairForm({
+  initialData,
+  initialSnapshot,
+}: {
+  initialData: ReceptionFormData;
+  initialSnapshot?: DeviceStepTwoSnapshot;
+}) {
   const { toast } = useToast();
-  const [step, setStep] = useState(0); const [customers, setCustomers] = useState(initialData.customers); const [types, setTypes] = useState(initialData.deviceTypes); const [brands, setBrands] = useState(initialData.brands);
-  const [customerId, setCustomerId] = useState(""); const [customer, setCustomer] = useState<CustomerDraft>({ firstName: "", lastName: "", phone: "", email: "" });
-  const [device, setDevice] = useState<DeviceDraft>(initialDevice); const [deviceId, setDeviceId] = useState("");
-  const [inspection, setInspection] = useState<InspectionItemDraft[]>(createInspection("OTHER")); const [reportedProblem, setReportedProblem] = useState(""); const [observations, setObservations] = useState(""); const [photos, setPhotos] = useState<EvidenceDraft[]>([]);
-  const [errors, setErrors] = useState<Errors>({}); const [touched, setTouched] = useState(new Set<string>()); const [busy, setBusy] = useState(false); const [completed, setCompleted] = useState(false); const [termsAccepted, setTermsAccepted] = useState(false);
-  const [modal, setModal] = useState<"type" | "brand" | null>(null); const [modalError, setModalError] = useState<string>(); const [customAccessory, setCustomAccessory] = useState("");
-  const selectedType = types.find((item) => item.id === device.typeId); const selectedBrand = brands.find((item) => item.id === device.brandId); const selectedCustomer = customers.find((item) => item.id === customerId);
+
+  // --------------------------------------------------------------------------
+  // ESTADO GENERAL DEL WIZARD
+  // step: 0 = Cliente · 1 = Dispositivo · 2 = Recepción · 3 = Confirmación
+  // --------------------------------------------------------------------------
+  const [step, setStep] = useState(0);
+  const [types, setTypes] = useState(initialData.deviceTypes);
+  const [, setColors] = useState(initialData.deviceColors);
+  const [accessories, setAccessories] = useState(initialData.accessories);
+  const [device, setDevice] = useState<DeviceDraft>(initialDevice);
+  const [deviceId, setDeviceId] = useState("");
+  const [inspection, setInspection] = useState<InspectionItemDraft[]>([]);
+  const [reportedProblem, setReportedProblem] = useState("");
+  const [observations, setObservations] = useState("");
+  const [intakeMetadata, setIntakeMetadata] = useState<IntakeMetadata>({ powerState: "", imageState: "", chargeState: "", accessAvailable: "", accessMethod: "", credentialProvided: false, postState: "", osBootState: "", inventoryStatus: "", powerTestReason: "", receptionItems: [] });
+  const [errors, setErrors] = useState<WizardErrors>({});
+  const [busy, setBusy] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [modal, setModal] = useState<
+    "type" | "brand" | "model" | "color" | null
+  >(null);
+  const [dynamicModal, setDynamicModal] =
+    useState<DynamicCatalogRequest | null>(null);
+  const [modalError, setModalError] = useState<string>();
+  const setFieldError = (key: string, value?: string) =>
+    setErrors((current) => ({ ...current, [key]: value }));
+  const { customers, setCustomers, customerId, setCustomerId, customer, setTouched, chooseCustomer, updateCustomer, validateCustomer } =
+    useCustomerStep(initialData.customers, setErrors);
+  const { brands, setBrands, models, setModels, variants, brandCatalogState, modelCatalogState, variantCatalogState, fieldCatalogs, setFieldCatalogs, processorCatalogStates, processorCatalogErrors, chooseType, chooseBrand: chooseCatalogBrand, chooseModel, chooseTechnicalField } =
+    useDeviceCatalogs({ initialData, types, setDevice, setInspection, setFieldError });
+  const { photos, setPhotos, addPhotos, uploadPhotos, disposePhotos } =
+    useReceptionPhotos({
+      setFieldError,
+      notify: (message, variant) => toast({ variant, title: message }),
+    });
+  const selectedType = types.find((item) => item.id === device.typeId);
+  const selectedBrand = brands.find((item) => item.id === device.brandId);
+  const selectedCustomer = customers.find((item) => item.id === customerId);
   const condition = useMemo(() => calculateCondition(inspection), [inspection]);
-  const customerName = selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : `${customer.firstName} ${customer.lastName}`.trim();
-  const setFieldError = (key: string, value?: string) => setErrors((current) => ({ ...current, [key]: value }));
-  function updateCustomer(key: keyof CustomerDraft, value: string) { const normalized = key === "phone" ? value.replace(/\D/g, "").slice(0, 10) : key === "email" ? value.toLowerCase().replace(/\s/g, "") : value; setCustomer((current) => ({ ...current, [key]: normalized })); if (touched.has(key)) setFieldError(key, key === "firstName" ? nameError(normalized, "nombre") : key === "lastName" ? nameError(normalized, "apellido") : key === "phone" ? (!normalized ? "Ingresá el teléfono." : normalized.length !== 10 ? "El teléfono debe contener 10 dígitos." : undefined) : emailError(normalized)); }
-  function chooseCustomer(id: string) { setCustomerId(id); setErrors({}); if (id !== "NEW") { const found = customers.find((item) => item.id === id); if (found) setCustomer({ firstName: found.firstName, lastName: found.lastName, phone: found.phone, email: found.email }); } else setCustomer({ firstName: "", lastName: "", phone: "", email: "" }); }
-  function validateCustomer() { const next: Errors = {}; if (!customerId) next.customerId = "Seleccioná un cliente o elegí registrar uno nuevo."; if (customerId === "NEW") { next.firstName = nameError(customer.firstName, "nombre"); next.lastName = nameError(customer.lastName, "apellido"); next.phone = !customer.phone ? "Ingresá el teléfono." : customer.phone.length !== 10 ? "El teléfono debe contener 10 dígitos." : undefined; next.email = emailError(customer.email); } setErrors(next); setTouched(new Set(["firstName", "lastName", "phone", "email"])); return !Object.values(next).some(Boolean); }
-  async function completeCustomerStep() { if (!validateCustomer()) return; if (customerId !== "NEW") { setStep(1); return; } setBusy(true); const result = await createCustomerAction(customer); setBusy(false); if (!result.ok) { setErrors((current) => ({ ...current, ...result.fieldErrors })); toast({ variant: "error", title: result.message }); return; } setCustomers((current) => [...current, result.data]); setCustomerId(result.data.id); toast({ variant: "success", title: result.message }); setStep(1); }
-  function chooseType(id: string) { const group = types.find((item) => item.id === id)?.attributeGroup ?? "OTHER"; setDevice((current) => ({ ...current, typeId: id, attributeGroup: group, attributes: {}, memories: [], storageUnits: [] })); setInspection(createInspection(group)); setFieldError("typeId"); }
-  function validateDevice() { const next: Errors = {}; if (!device.typeId) next.typeId = "Seleccioná el tipo de dispositivo."; if (!device.brandId) next.brandId = "Seleccioná la marca."; if (device.model.trim().length < 2) next.model = "Ingresá el modelo del dispositivo."; if (device.year && !/^\d{4}$/.test(device.year)) next.year = "Ingresá un año válido."; setErrors(next); return !Object.values(next).some(Boolean); }
-  async function completeDeviceStep() { if (!validateDevice()) return; setBusy(true); const color = device.color === "Otro color" ? device.customColor.trim() : device.color; const result = await saveDeviceAction({ customerId, ...device, color }); setBusy(false); if (!result.ok) { setErrors(result.fieldErrors ?? {}); toast({ variant: "error", title: result.message }); return; } setDeviceId(result.data.id); toast({ variant: "success", title: result.message }); setStep(2); }
-  function prepareConfirmation() { const next: Errors = {}; if (reportedProblem.trim().length < 10) next.reportedProblem = "Describí el problema informado con al menos 10 caracteres."; if (inspection.some((item) => !item.status)) next.inspection = "Completá el estado de todos los elementos inspeccionados."; setErrors(next); if (!Object.values(next).some(Boolean)) setStep(3); }
-  async function createCatalog(name: string) { if (name.trim().length < 2) { setModalError("El nombre debe tener al menos 2 caracteres."); return; } setBusy(true); setModalError(undefined); const result: MutationResult<CatalogOption> = modal === "type" ? await createCustomDeviceTypeAction({ name }) : await createCustomBrandAction({ name }); setBusy(false); if (!result.ok) { setModalError(result.message); toast({ variant: "error", title: result.message }); return; } if (modal === "type") { setTypes((current) => [...current, result.data]); chooseType(result.data.id); } else { setBrands((current) => [...current, result.data]); setDevice((current) => ({ ...current, brandId: result.data.id })); } toast({ variant: "success", title: result.message }); setModal(null); }
-  function addPhotos(event: ChangeEvent<HTMLInputElement>) { const valid: EvidenceDraft[] = []; for (const file of [...(event.target.files ?? [])]) { if (!PHOTO_TYPES.has(file.type)) { setFieldError("photos", "Solo se permiten fotografías PNG, JPG o WebP."); continue; } if (file.size > MAX_PHOTO_SIZE) { setFieldError("photos", "Cada fotografía puede pesar hasta 5 MB."); continue; } valid.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file), description: "", inspectionKey: "" }); } if (valid.length) { setPhotos((current) => [...current, ...valid]); setFieldError("photos"); } event.target.value = ""; }
-  async function uploadPhotos(receptionId: string, prefix: string) { const supabase = createSupabaseBrowserClient(); for (const photo of photos) { const extension = photo.file.type === "image/png" ? "png" : photo.file.type === "image/webp" ? "webp" : "jpg"; const path = `${prefix}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("reception-photos").upload(path, photo.file, { contentType: photo.file.type, upsert: false }); if (upload.error) { toast({ variant: "error", title: "No se pudo cargar la fotografía." }); continue; } const metadata = await registerReceptionPhotoAction({ receptionId, storagePath: path, description: photo.description, inspectionKey: photo.inspectionKey }); if (!metadata.ok) { await supabase.storage.from("reception-photos").remove([path]); toast({ variant: "error", title: metadata.message }); } else toast({ variant: "success", title: metadata.message }); } }
-  async function handleSubmit(event: FormEvent) { event.preventDefault(); if (!termsAccepted) { setFieldError("termsAccepted", "Confirmá que la información fue revisada con el cliente."); return; } setBusy(true); const result = await confirmReceptionAction({ customerId, deviceId, reportedProblem, observations, inspection: inspection.map((item) => ({ key: item.key, label: item.label, status: item.status, observation: item.observation })) }); if (!result.ok) { setBusy(false); toast({ variant: "error", title: result.message }); return; } toast({ variant: "success", title: result.message }); await uploadPhotos(result.data.id, result.data.photoPrefix); photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl)); setBusy(false); setCompleted(true); }
+  const customerName = selectedCustomer
+    ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}`
+    : `${customer.firstName} ${customer.lastName}`.trim();
+  const chooseBrand = (id: string) => chooseCatalogBrand(id, device.typeId);
+  const hydratedEdit = useRef(false);
 
-  if (completed) return <Card className="mx-auto max-w-2xl p-6 text-center sm:p-10"><span className="mx-auto grid size-16 place-items-center rounded-full bg-success-soft text-success"><Check className="size-8" /></span><p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-success">Recepción registrada</p><h2 className="mt-2 text-2xl font-bold text-primary">El ingreso del equipo quedó documentado</h2><p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted">Guardamos el cliente, el dispositivo y el snapshot inmutable de recepción de {customerName}.</p><Link className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-accent-button px-5 text-sm font-bold text-white hover:bg-accent-button-hover" href="/repairs">Volver a reparaciones</Link></Card>;
-  return <><form className="mx-auto w-full max-w-6xl" onSubmit={handleSubmit}><Card className="overflow-hidden"><ol aria-label="Progreso de recepción" className="grid grid-cols-4 border-b border-border bg-surface-soft">{steps.map((label, index) => <li aria-current={index === step ? "step" : undefined} className={cn("px-2 py-4 text-center", index < step && "text-success", index === step ? "bg-surface-raised text-accent" : "text-muted")} key={label}><span className={cn("mx-auto grid size-7 place-items-center rounded-full border text-xs font-bold", index < step ? "border-success bg-success text-white" : index === step ? "border-accent bg-accent-soft" : "border-border bg-surface")}>{index < step ? <Check className="size-4" /> : index + 1}</span><span className="mt-2 block text-[11px] font-bold sm:text-xs">{label}</span></li>)}</ol><div className="p-5 sm:p-7 lg:p-8">{step === 0 && <CustomerStep customers={customers} customerId={customerId} customer={customer} errors={errors} chooseCustomer={chooseCustomer} update={updateCustomer} touch={(key) => setTouched((current) => new Set(current).add(key))} />}{step === 1 && <DeviceStep data={initialData} types={types} brands={brands} device={device} errors={errors} setDevice={setDevice} chooseType={chooseType} openModal={setModal} customAccessory={customAccessory} setCustomAccessory={setCustomAccessory} />}{step === 2 && <IntakeStep inspection={inspection} setInspection={setInspection} condition={condition} reportedProblem={reportedProblem} setReportedProblem={setReportedProblem} observations={observations} setObservations={setObservations} photos={photos} setPhotos={setPhotos} addPhotos={addPhotos} errors={errors} />}{step === 3 && <ConfirmationStep customerName={customerName} customer={selectedCustomer ?? customer} typeName={selectedType?.name ?? ""} brandName={selectedBrand?.name ?? ""} device={device} condition={condition} reportedProblem={reportedProblem} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} error={errors.termsAccepted} />}<div className="mt-8 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"><Button disabled={step === 0 || busy} onClick={() => { setErrors({}); setStep((current) => Math.max(0, current - 1)); }} variant="secondary"><ChevronLeft className="size-4" />Anterior</Button>{step === 0 ? <Button loading={busy} loadingText="Registrando cliente…" onClick={completeCustomerStep}>Continuar<ChevronRight className="size-4" /></Button> : step === 1 ? <Button loading={busy} loadingText="Guardando dispositivo…" onClick={completeDeviceStep}>Guardar y continuar<ChevronRight className="size-4" /></Button> : step === 2 ? <Button onClick={prepareConfirmation}>Continuar<ChevronRight className="size-4" /></Button> : <Button loading={busy} loadingText="Registrando recepción…" type="submit"><ClipboardCheck className="size-4" />Confirmar recepción</Button>}</div></div></Card></form><CatalogModal busy={busy} error={modalError} label={modal === "type" ? "Nombre del tipo" : "Nombre de la marca"} onClose={() => { setModal(null); setModalError(undefined); }} onSubmit={createCatalog} open={modal !== null} title={modal === "type" ? "Registrar nuevo tipo" : "Registrar nueva marca"} /></>;
+  useEffect(() => {
+    if (!initialSnapshot || hydratedEdit.current) return;
+    hydratedEdit.current = true;
+    const hydrate = async () => {
+      const draft = initialSnapshot.device;
+      chooseCustomer(initialSnapshot.customerId);
+      await chooseType(draft.typeId);
+      await chooseCatalogBrand(draft.brandId, draft.typeId);
+      await chooseModel(draft.modelId);
+      const typeCode = initialData.deviceTypes.find((item) => item.id === draft.typeId)?.code;
+      const attrs = draft.attributes;
+      if (attrs.processor_brand_id) await chooseTechnicalField("processor_brand_id", attrs.processor_brand_id, typeCode, attrs);
+      if (attrs.processor_family_id) await chooseTechnicalField("processor_family_id", attrs.processor_family_id, typeCode, attrs);
+      if (attrs.processor_generation_id) await chooseTechnicalField("processor_generation_id", attrs.processor_generation_id, typeCode, attrs);
+      setDevice(draft);
+      setDeviceId(draft.deviceId ?? "");
+      setStep(1);
+    };
+    void hydrate();
+  }, [initialSnapshot, initialData.deviceTypes, chooseCatalogBrand, chooseCustomer, chooseModel, chooseTechnicalField, chooseType]);
+
+  // PASO 1 · CLIENTE — PERSISTENCIA Y AVANCE AL PASO 2
+  // Si el cliente ya existe avanza directamente; si es nuevo, lo crea primero.
+  async function completeCustomerStep() {
+    if (!validateCustomer()) return;
+    if (customerId !== "NEW") {
+      setStep(1);
+      return;
+    }
+    setBusy(true);
+    const result = await createCustomerAction(customer);
+    setBusy(false);
+    if (!result.ok) {
+      setErrors((current) => ({ ...current, ...result.fieldErrors }));
+      toast({ variant: "error", title: result.message });
+      return;
+    }
+    setCustomers((current) => [...current, result.data]);
+    setCustomerId(result.data.id);
+    toast({ variant: "success", title: result.message });
+    setStep(1);
+  }
+
+
+
+  // PASO 2 · DISPOSITIVO — VALIDACIONES ANTES DE GUARDAR
+  // Tipo, marca y modelo son obligatorios. El año, si existe, debe tener 4 dígitos.
+  function validateDevice() {
+    const next = validateDeviceDraft(device, selectedType?.code);
+    setErrors(next);
+    return !Object.values(next).some(Boolean);
+  }
+  // PASO 2 · DISPOSITIVO — PERSISTENCIA Y AVANCE AL PASO 3
+  async function completeDeviceStep() {
+    if (!validateDevice()) return;
+    setBusy(true);
+    const color =
+      device.color === "Otro color" ? device.customColor.trim() : device.color;
+    const result = await saveDeviceAction({ customerId, ...device, color });
+    setBusy(false);
+    if (!result.ok) {
+      setErrors(result.fieldErrors ?? {});
+      toast({ variant: "error", title: result.message });
+      return;
+    }
+    setDeviceId(result.data.id);
+    if (selectedType?.code === "desktop_pc") setIntakeMetadata((current) => ({ ...current, inventoryStatus: (device.attributes.inventory_status || "NOT_PERFORMED") as IntakeMetadata["inventoryStatus"] }));
+    toast({ variant: "success", title: result.message });
+    setStep(2);
+  }
+  // --------------------------------------------------------------------------
+  // PASO 3 · RECEPCIÓN — VALIDACIONES ANTES DE LA CONFIRMACIÓN
+  // Exige una descripción mínima del problema y completar todos los estados
+  // de la inspección física antes de permitir avanzar al paso 4.
+  // --------------------------------------------------------------------------
+  function prepareConfirmation() {
+    const next = validateReception(reportedProblem);
+    setErrors(next);
+    if (!Object.values(next).some(Boolean)) setStep(3);
+  }
+  // PASO 2 · DISPOSITIVO — ALTA RÁPIDA DE CATÁLOGOS
+  // Permite registrar un tipo de dispositivo o una marca sin salir del flujo.
+  async function createCatalog(name: string) {
+    if (name.trim().length < 2) {
+      setModalError("El nombre debe tener al menos 2 caracteres.");
+      return;
+    }
+    setBusy(true);
+    setModalError(undefined);
+    const result =
+      modal === "type"
+        ? await createCustomDeviceTypeAction({ name })
+        : modal === "brand"
+          ? await createCustomBrandAction({ name, typeId: device.typeId })
+          : modal === "model"
+            ? await createCustomDeviceModelAction({
+                name,
+                typeId: device.typeId,
+                brandId: device.brandId,
+              })
+            : await createCustomDeviceColorAction({ name });
+    setBusy(false);
+    if (!result.ok) {
+      setModalError(result.message);
+      toast({ variant: "error", title: result.message });
+      return;
+    }
+    if (modal === "type") {
+      setTypes((current) => [...current, result.data]);
+      chooseType(result.data.id);
+    } else if (modal === "brand") {
+      setBrands((current) => [...current, result.data]);
+      setDevice((current) => ({
+        ...current,
+        brandId: result.data.id,
+        modelId: "",
+        model: "",
+      }));
+    } else if (modal === "model") {
+      const model = result.data as DeviceModelOption;
+      setModels((current) => [...current, model]);
+      setDevice((current) => ({
+        ...current,
+        modelId: model.id,
+        model: model.name,
+      }));
+    } else {
+      const color = result.data as DeviceColorOption;
+      setColors((current) => [...current, color]);
+      setDevice((current) => ({
+        ...current,
+        color: color.id,
+        customColor: "",
+      }));
+    }
+    toast({ variant: "success", title: result.message });
+    setModal(null);
+  }
+
+  async function createDynamicCatalog(name: string) {
+    if (!dynamicModal) return;
+    setBusy(true);
+    setModalError(undefined);
+    const result = await createDynamicCatalogOptionAction({
+      sourceKey: dynamicModal.sourceKey,
+      parentId: dynamicModal.parentId,
+      grandparentId: dynamicModal.grandparentId,
+      name,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setModalError(result.message);
+      toast({ variant: "error", title: result.message });
+      return;
+    }
+    if (dynamicModal.accessory) {
+      setAccessories((current) => [
+        ...current.filter((item) => item.id !== result.data.id),
+        result.data,
+      ]);
+      setDevice((current) => ({
+        ...current,
+        accessories: [...new Set([...current.accessories, result.data.id])],
+      }));
+    } else {
+      setFieldCatalogs((current) => ({
+        ...current,
+        [dynamicModal.sourceKey]: [
+          ...(current[dynamicModal.sourceKey] ?? []).filter(
+            (item) => item.id !== result.data.id,
+          ),
+          result.data,
+        ],
+      }));
+      if (dynamicModal.fieldKey)
+        setDevice((current) => ({
+          ...current,
+          attributes: {
+            ...current.attributes,
+            [dynamicModal.fieldKey!]: result.data.id,
+          },
+        }));
+      if (dynamicModal.storageIndex !== undefined)
+        setDevice((current) => ({
+          ...current,
+          storageUnits: current.storageUnits.map((unit, index) =>
+            index === dynamicModal.storageIndex
+              ? { ...unit, type: result.data.id }
+              : unit,
+          ),
+        }));
+    }
+    toast({ variant: "success", title: result.message });
+    setDynamicModal(null);
+  }
+  // --------------------------------------------------------------------------
+  // PASO 4 · CONFIRMACIÓN — VALIDACIÓN FINAL Y REGISTRO DE RECEPCIÓN
+  // Requiere aceptación explícita, congela el snapshot y luego sube las fotos.
+  // --------------------------------------------------------------------------
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!termsAccepted) {
+      setFieldError(
+        "termsAccepted",
+        "Confirmá que la información fue revisada con el cliente.",
+      );
+      return;
+    }
+    setBusy(true);
+    const result = await confirmReceptionAction({
+      customerId,
+      deviceId,
+      reportedProblem,
+      observations,
+      inspection: inspection.filter((item) => item.status).map((item) => ({
+        key: item.key,
+        label: item.label,
+        status: item.status,
+        observation: item.observation,
+      })),
+      intakeMetadata,
+    });
+    if (!result.ok) {
+      setBusy(false);
+      toast({ variant: "error", title: result.message });
+      return;
+    }
+    toast({ variant: "success", title: result.message });
+    await uploadPhotos(result.data.id, result.data.photoPrefix);
+    disposePhotos();
+    setBusy(false);
+    setCompleted(true);
+  }
+
+  // --------------------------------------------------------------------------
+  // ESTADO FINAL · RECEPCIÓN COMPLETADA
+  // --------------------------------------------------------------------------
+  if (completed)
+    return (
+      <Card className="mx-auto max-w-2xl p-6 text-center sm:p-10">
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-success-soft text-success">
+          <Check className="size-8" />
+        </span>
+        <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-success">
+          Recepción registrada
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-primary">
+          El ingreso del equipo quedó documentado
+        </h2>
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted">
+          Guardamos el cliente, el dispositivo y el snapshot inmutable de
+          recepción de {customerName}.
+        </p>
+        <Link
+          className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-accent-button px-5 text-sm font-bold text-white hover:bg-accent-button-hover"
+          href="/repairs"
+        >
+          Volver a reparaciones
+        </Link>
+      </Card>
+    );
+
+  // ============================================================================
+  // RENDER PRINCIPAL DEL WIZARD DE RECEPCIÓN
+  // ============================================================================
+  return (
+    <>
+      <form className="mx-auto w-full max-w-6xl" onSubmit={handleSubmit}>
+        <Card className="overflow-visible">
+          <div className="overflow-hidden rounded-t-xl">
+            <ol
+              aria-label="Progreso de recepción"
+              className="grid grid-cols-4 border-b border-border bg-surface-soft"
+            >
+              {WIZARD_STEPS.map((label, index) => (
+                <li
+                  aria-current={index === step ? "step" : undefined}
+                  className={cn(
+                    "px-2 py-4 text-center",
+                    index < step && "text-success",
+                    index === step
+                      ? "bg-surface-raised text-accent"
+                      : "text-muted",
+                  )}
+                  key={label}
+                >
+                  <span
+                    className={cn(
+                      "mx-auto grid size-7 place-items-center rounded-full border text-xs font-bold",
+                      index < step
+                        ? "border-success bg-success text-white"
+                        : index === step
+                          ? "border-accent bg-accent-soft"
+                          : "border-border bg-surface",
+                    )}
+                  >
+                    {index < step ? <Check className="size-4" /> : index + 1}
+                  </span>
+
+                  <span className="mt-2 block text-[11px] font-bold sm:text-xs">
+                    {label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="p-5 sm:p-7 lg:p-8">
+            {/* ============================================================
+                PASO 1 · IDENTIFICACIÓN DEL CLIENTE
+                ============================================================ */}
+            {step === 0 && (
+              <CustomerStep
+                customers={customers}
+                customerId={customerId}
+                customer={customer}
+                errors={errors}
+                chooseCustomer={chooseCustomer}
+                update={updateCustomer}
+                touch={(key) =>
+                  setTouched((current) => new Set(current).add(key))
+                }
+              />
+            )}
+            {/* ============================================================
+                PASO 2 · DATOS DEL DISPOSITIVO
+                ============================================================ */}
+            {step === 1 && (
+              <DeviceStep
+                types={types}
+                brands={brands}
+                models={models}
+                variants={variants}
+                device={device}
+                errors={errors}
+                setDevice={setDevice}
+                chooseType={chooseType}
+                chooseBrand={chooseBrand}
+                chooseModel={chooseModel}
+                brandCatalogState={brandCatalogState}
+                modelCatalogState={modelCatalogState}
+                variantCatalogState={variantCatalogState}
+                sections={initialData.formSectionsByType[device.typeId] ?? []}
+                fieldCatalogs={fieldCatalogs}
+                setDynamicAttribute={(key, value) => chooseTechnicalField(key, value, selectedType?.code, device.attributes)}
+                processorCatalogStates={processorCatalogStates}
+                processorCatalogErrors={processorCatalogErrors}
+                deviceTypeName={selectedType?.name ?? "el tipo seleccionado"}
+                deviceTypeCode={selectedType?.code}
+              />
+            )}
+            {/* ============================================================
+                PASO 3 · RECEPCIÓN E INSPECCIÓN DEL EQUIPO
+                ============================================================ */}
+            {step === 2 && (
+              <IntakeStep
+                inspection={inspection}
+                setInspection={setInspection}
+                condition={condition}
+                reportedProblem={reportedProblem}
+                setReportedProblem={setReportedProblem}
+                observations={observations}
+                setObservations={setObservations}
+                intakeMetadata={intakeMetadata}
+                setIntakeMetadata={setIntakeMetadata}
+                photos={photos}
+                setPhotos={setPhotos}
+                addPhotos={addPhotos}
+                errors={errors}
+                deviceTypeCode={selectedType?.code}
+                accessories={accessories}
+              />
+            )}
+            {/* ============================================================
+                PASO 4 · CONFIRMACIÓN FINAL
+                ============================================================ */}
+            {step === 3 && (
+              <ConfirmationStep
+                customerName={customerName}
+                customer={selectedCustomer ?? customer}
+                typeName={selectedType?.name ?? ""}
+                brandName={selectedBrand?.name ?? ""}
+                device={device}
+                condition={condition}
+                reportedProblem={reportedProblem}
+                accessoryNames={device.accessories
+                  .map((id) => accessories.find((item) => item.id === id)?.name)
+                  .filter((name): name is string => Boolean(name))}
+                termsAccepted={termsAccepted}
+                setTermsAccepted={setTermsAccepted}
+                error={errors.termsAccepted}
+              />
+            )}
+            <div className="mt-8 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                disabled={step === 0 || busy}
+                onClick={() => {
+                  setErrors({});
+                  setStep((current) => Math.max(0, current - 1));
+                }}
+                variant="secondary"
+              >
+                <ChevronLeft className="size-4" />
+                Anterior
+              </Button>
+              {step === 0 ? (
+                <Button
+                  loading={busy}
+                  loadingText="Registrando cliente…"
+                  onClick={completeCustomerStep}
+                >
+                  Continuar
+                  <ChevronRight className="size-4" />
+                </Button>
+              ) : step === 1 ? (
+                <Button
+                  loading={busy}
+                  loadingText="Guardando dispositivo…"
+                  onClick={completeDeviceStep}
+                >
+                  Guardar y continuar
+                  <ChevronRight className="size-4" />
+                </Button>
+              ) : step === 2 ? (
+                <Button onClick={prepareConfirmation}>
+                  Continuar
+                  <ChevronRight className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  loading={busy}
+                  loadingText="Registrando recepción…"
+                  type="submit"
+                >
+                  <ClipboardCheck className="size-4" />
+                  Confirmar recepción
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      </form>
+      <CatalogModal
+        busy={busy}
+        error={modalError}
+        label={
+          modal === "type"
+            ? "Nombre del tipo"
+            : modal === "brand"
+              ? "Nombre de la marca"
+              : modal === "model"
+                ? "Nombre del modelo"
+                : "Nombre del color"
+        }
+        onClose={() => {
+          setModal(null);
+          setModalError(undefined);
+        }}
+        onSubmit={createCatalog}
+        open={modal !== null}
+        title={
+          modal === "type"
+            ? "Registrar nuevo tipo"
+            : modal === "brand"
+              ? "Registrar nueva marca"
+              : modal === "model"
+                ? "Registrar nuevo modelo"
+                : "Registrar nuevo color"
+        }
+      />
+      <CatalogModal
+        busy={busy}
+        error={modalError}
+        label="Nombre"
+        onClose={() => {
+          setDynamicModal(null);
+          setModalError(undefined);
+        }}
+        onSubmit={createDynamicCatalog}
+        open={dynamicModal !== null}
+        title={
+          dynamicModal?.sourceKey.endsWith("_brand")
+            ? "Registrar nueva marca"
+            : dynamicModal?.accessory
+              ? "Registrar nuevo accesorio"
+              : dynamicModal?.sourceKey === "storage_type"
+                ? "Registrar tipo de almacenamiento"
+                : "Registrar nuevo modelo"
+        }
+      />
+    </>
+  );
 }
-
-function CustomerStep({ customers, customerId, customer, errors, chooseCustomer, update, touch }: { customers: ReceptionCustomer[]; customerId: string; customer: CustomerDraft; errors: Errors; chooseCustomer: (id: string) => void; update: (key: keyof CustomerDraft, value: string) => void; touch: (key: string) => void }) { return <fieldset><legend className="text-xl font-bold text-primary">1. Identificación del cliente</legend><p className="mt-2 text-sm text-muted">Buscá un cliente registrado o completá sus datos básicos.</p><div className="mt-6 space-y-5"><SearchableSelect error={errors.customerId} id="customerId" label="Cliente" onChange={chooseCustomer} options={customers.map((item) => ({ id: item.id, label: `${item.firstName} ${item.lastName}`, subtitle: item.phone }))} placeholder="Seleccionar cliente" value={customerId} /><button className="text-sm font-semibold text-accent hover:underline" onClick={() => chooseCustomer("NEW")} type="button">+ Registrar nuevo cliente</button>{customerId === "NEW" && <div className="grid gap-4 rounded-xl border border-line bg-surface-soft p-4 sm:grid-cols-2"><FormField error={errors.firstName} htmlFor="firstName" label="Nombre" required><input className={cn("field-control", errors.firstName && "field-control-invalid")} id="firstName" onBlur={() => touch("firstName")} onChange={(event) => update("firstName", event.target.value)} value={customer.firstName} /></FormField><FormField error={errors.lastName} htmlFor="lastName" label="Apellido" required><input className={cn("field-control", errors.lastName && "field-control-invalid")} id="lastName" onBlur={() => touch("lastName")} onChange={(event) => update("lastName", event.target.value)} value={customer.lastName} /></FormField><FormField error={errors.phone} hint="Ingresá los 10 dígitos nacionales, sin +54, espacios ni símbolos." htmlFor="phone" label="Teléfono" required><input className={cn("field-control", errors.phone && "field-control-invalid")} id="phone" inputMode="numeric" maxLength={10} onBlur={() => touch("phone")} onChange={(event) => update("phone", event.target.value)} value={customer.phone} /></FormField><FormField error={errors.email} htmlFor="email" label="Correo electrónico"><input className={cn("field-control", errors.email && "field-control-invalid")} id="email" onBlur={() => touch("email")} onChange={(event) => update("email", event.target.value)} placeholder="usuario@empresa.com" type="email" value={customer.email} /></FormField></div>}</div></fieldset>; }
-
-function DeviceStep({ data, types, brands, device, errors, setDevice, chooseType, openModal, customAccessory, setCustomAccessory }: { data: ReceptionFormData; types: CatalogOption[]; brands: CatalogOption[]; device: DeviceDraft; errors: Errors; setDevice: React.Dispatch<React.SetStateAction<DeviceDraft>>; chooseType: (id: string) => void; openModal: (modal: "type" | "brand") => void; customAccessory: string; setCustomAccessory: (value: string) => void }) {
-  const update = <K extends keyof DeviceDraft>(key: K, value: DeviceDraft[K]) => setDevice((current) => ({ ...current, [key]: value })); const fields = ATTRIBUTE_FIELDS[device.attributeGroup]; const addAccessory = (value: string) => { const clean = value.trim(); if (clean && !device.accessories.some((item) => item.toLowerCase() === clean.toLowerCase())) update("accessories", [...device.accessories, clean]); setCustomAccessory(""); };
-  return <fieldset><legend className="text-xl font-bold text-primary">2. Datos del dispositivo</legend><p className="mt-2 text-sm text-muted">Los campos se adaptan al tipo de equipo seleccionado.</p><div className="mt-6 grid gap-5 sm:grid-cols-2"><SearchableSelect createLabel="Registrar nuevo tipo" error={errors.typeId} id="deviceType" label="Tipo" onChange={chooseType} onCreate={() => openModal("type")} options={types.map((item) => ({ id: item.id, label: item.name, group: item.category }))} placeholder="Buscar tipo de dispositivo" value={device.typeId} /><SearchableSelect createLabel="Registrar nueva marca" error={errors.brandId} id="brand" label="Marca" onChange={(value) => update("brandId", value)} onCreate={() => openModal("brand")} options={brands.map((item) => ({ id: item.id, label: item.name, group: item.organizationId ? "Marcas de tu organización" : "Marcas conocidas" }))} placeholder="Buscar marca" value={device.brandId} /><FormField error={errors.model} htmlFor="model" label="Modelo" required><><input className={cn("field-control", errors.model && "field-control-invalid")} id="model" list="model-suggestions" onChange={(event) => update("model", event.target.value)} value={device.model} /><datalist id="model-suggestions">{data.suggestions.models.map((item) => <option key={item}>{item}</option>)}</datalist></></FormField><FormField error={errors.year} htmlFor="year" label="Año"><input className="field-control" id="year" inputMode="numeric" maxLength={4} onChange={(event) => update("year", event.target.value.replace(/\D/g, "").slice(0, 4))} value={device.year} /></FormField><FormField htmlFor="color" label="Color"><select className="field-control" id="color" onChange={(event) => update("color", event.target.value)} value={device.color}><option value="">Seleccionar color</option>{COLORS.map((item) => <option key={item}>{item}</option>)}</select></FormField>{device.color === "Otro color" && <FormField htmlFor="customColor" label="Otro color"><input className="field-control" id="customColor" onChange={(event) => update("customColor", event.target.value)} value={device.customColor} /></FormField>}<FormField htmlFor="serialNumber" label="Número de serie"><input className="field-control" id="serialNumber" maxLength={120} onChange={(event) => update("serialNumber", event.target.value)} value={device.serialNumber} /></FormField>{device.attributeGroup === "MOBILE" && <><FormField htmlFor="imei1" label="IMEI 1"><input className="field-control" id="imei1" inputMode="numeric" maxLength={20} onChange={(event) => update("imei1", event.target.value.replace(/\D/g, ""))} value={device.imei1} /></FormField><FormField htmlFor="imei2" label="IMEI 2 (opcional)"><input className="field-control" id="imei2" inputMode="numeric" maxLength={20} onChange={(event) => update("imei2", event.target.value.replace(/\D/g, ""))} value={device.imei2} /></FormField></>}{fields.map((field) => <FormField htmlFor={field.key} key={field.key} label={field.label}><><input className="field-control" id={field.key} list={field.suggestion ? `${field.key}-suggestions` : undefined} onChange={(event) => update("attributes", { ...device.attributes, [field.key]: event.target.value })} value={device.attributes[field.key] ?? ""} />{field.suggestion && <datalist id={`${field.key}-suggestions`}>{data.suggestions[field.suggestion].map((item) => <option key={item}>{item}</option>)}</datalist>}</></FormField>)}</div>{device.attributeGroup === "COMPUTER" && <div className="mt-6 grid gap-5 lg:grid-cols-2"><RepeatableHardware title="Memorias RAM" items={device.memories} typeOptions={["DDR3", "DDR4", "DDR5", "LPDDR4", "LPDDR5", "Otro"]} onChange={(value) => update("memories", value)} /><RepeatableHardware title="Almacenamientos" items={device.storageUnits} typeOptions={["HDD", "SSD SATA", "SSD NVMe", "eMMC", "Otro"]} onChange={(value) => update("storageUnits", value)} /></div>}<div className="mt-6 rounded-xl border border-line bg-surface-soft p-4"><h3 className="font-semibold text-primary">Accesorios entregados</h3><p className="mt-1 text-xs text-muted">Seleccioná ninguno, uno o varios.</p><div className="mt-3 flex flex-wrap gap-2">{ACCESSORIES.map((item) => <button className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", device.accessories.includes(item) ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-muted hover:text-primary")} key={item} onClick={() => update("accessories", device.accessories.includes(item) ? device.accessories.filter((value) => value !== item) : [...device.accessories, item])} type="button">{item}</button>)}</div>{device.accessories.filter((item) => !ACCESSORIES.includes(item as typeof ACCESSORIES[number])).map((item) => <span className="mr-2 mt-3 inline-flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent" key={item}>{item}<button aria-label={`Quitar ${item}`} onClick={() => update("accessories", device.accessories.filter((value) => value !== item))} type="button"><X className="size-3" /></button></span>)}<div className="mt-4 flex flex-col gap-2 sm:flex-row"><input className="field-control" maxLength={60} onChange={(event) => setCustomAccessory(event.target.value)} placeholder="Otro accesorio" value={customAccessory} /><Button disabled={!customAccessory.trim()} onClick={() => addAccessory(customAccessory)} size="sm" variant="secondary"><Plus className="size-4" />Agregar</Button></div></div></fieldset>;
-}
-
-function RepeatableHardware({ title, items, typeOptions, onChange }: { title: string; items: { type: string; capacity: string }[]; typeOptions: string[]; onChange: (items: { type: string; capacity: string }[]) => void }) { return <section className="rounded-xl border border-line p-4"><div className="flex items-center justify-between"><h3 className="font-semibold text-primary">{title}</h3><Button onClick={() => onChange([...items, { type: "", capacity: "" }])} size="sm" variant="secondary"><Plus className="size-4" />Agregar</Button></div><div className="mt-3 space-y-3">{items.length === 0 ? <p className="text-sm text-muted">Sin elementos cargados.</p> : items.map((item, index) => <div className="grid grid-cols-[1fr_1fr_auto] gap-2" key={`${title}-${index}`}><select aria-label={`Tipo ${index + 1}`} className="field-control" onChange={(event) => onChange(items.map((current, itemIndex) => itemIndex === index ? { ...current, type: event.target.value } : current))} value={item.type}><option value="">Tipo</option>{typeOptions.map((option) => <option key={option}>{option}</option>)}</select><input aria-label={`Capacidad ${index + 1}`} className="field-control" onChange={(event) => onChange(items.map((current, itemIndex) => itemIndex === index ? { ...current, capacity: event.target.value } : current))} placeholder="Ej. 8 GB" value={item.capacity} /><button aria-label={`Eliminar elemento ${index + 1}`} className="grid size-11 place-items-center rounded-lg text-danger hover:bg-danger-soft" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))} type="button"><Trash2 className="size-4" /></button></div>)}</div></section>; }
-
-function IntakeStep({ inspection, setInspection, condition, reportedProblem, setReportedProblem, observations, setObservations, photos, setPhotos, addPhotos, errors }: { inspection: InspectionItemDraft[]; setInspection: React.Dispatch<React.SetStateAction<InspectionItemDraft[]>>; condition: ReturnType<typeof calculateCondition>; reportedProblem: string; setReportedProblem: (value: string) => void; observations: string; setObservations: (value: string) => void; photos: EvidenceDraft[]; setPhotos: React.Dispatch<React.SetStateAction<EvidenceDraft[]>>; addPhotos: (event: ChangeEvent<HTMLInputElement>) => void; errors: Errors }) { const updateItem = (index: number, patch: Partial<InspectionItemDraft>) => setInspection((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)); return <fieldset><legend className="text-xl font-bold text-primary">3. Recepción del equipo</legend><p className="mt-2 text-sm text-muted">Separá lo informado por el cliente de lo observado físicamente al ingresar.</p><div className="mt-6 space-y-7"><FormField error={errors.reportedProblem} hint="Registrá lo que declara el cliente; no es un diagnóstico técnico." htmlFor="reportedProblem" label="Problema informado" required><textarea className={cn("field-control min-h-28 resize-y", errors.reportedProblem && "field-control-invalid")} id="reportedProblem" maxLength={2000} onChange={(event) => setReportedProblem(event.target.value)} placeholder="El cliente informa que el equipo…" value={reportedProblem} /></FormField><section><div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="font-bold text-primary">Inspección física de recepción</h3><p className="mt-1 text-sm text-muted">Completá cada ítem según lo que puede observarse ahora.</p></div><div className="rounded-lg border border-accent/30 bg-accent-soft px-4 py-2 text-sm"><span className="text-muted">Estado físico calculado:</span> <strong className="text-primary">{condition.label}</strong><span className="ml-2 text-xs text-muted">({condition.score} ptos.)</span></div></div>{errors.inspection && <p className="mt-2 text-sm font-medium text-danger">{errors.inspection}</p>}<div className="mt-4 divide-y divide-line rounded-xl border border-line">{inspection.map((item, index) => { const critical = condition.critical.some((entry) => entry.key === item.key); return <div className={cn("grid gap-3 p-4 lg:grid-cols-[minmax(160px,.8fr)_minmax(180px,.65fr)_minmax(220px,1fr)] lg:items-center", critical && "bg-danger-soft/50")} key={item.key}><div className="flex items-center gap-2"><span className="font-semibold text-primary">{item.label}</span>{critical && <AlertTriangle className="size-4 text-danger" />}</div><select aria-label={`Estado de ${item.label}`} className="field-control" onChange={(event) => updateItem(index, { status: event.target.value as InspectionItemDraft["status"] })} value={item.status}><option value="">Seleccionar estado</option>{Object.entries(INSPECTION_STATUSES).map(([value, config]) => <option key={value} value={value}>{config.label}</option>)}</select><input aria-label={`Observación de ${item.label}`} className="field-control" maxLength={500} onChange={(event) => updateItem(index, { observation: event.target.value })} placeholder="Observación opcional" value={item.observation} /></div>; })}</div>{condition.critical.length > 0 && <div className="mt-3 flex gap-2 rounded-lg border border-danger/30 bg-danger-soft p-3 text-sm text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><strong>Daños importantes:</strong> {condition.critical.map((item) => item.label).join(", ")}.</span></div>}</section><PhotoEvidence photos={photos} setPhotos={setPhotos} inspection={inspection} addPhotos={addPhotos} error={errors.photos} /><FormField htmlFor="observations" label="Observaciones de recepción" hint="Notas adicionales que no correspondan al problema informado ni a un ítem concreto."><textarea className="field-control min-h-24 resize-y" id="observations" maxLength={2000} onChange={(event) => setObservations(event.target.value)} placeholder="Ej. El equipo fue entregado apagado y sin cargador." value={observations} /></FormField></div></fieldset>; }
-
-function PhotoEvidence({ photos, setPhotos, inspection, addPhotos, error }: { photos: EvidenceDraft[]; setPhotos: React.Dispatch<React.SetStateAction<EvidenceDraft[]>>; inspection: InspectionItemDraft[]; addPhotos: (event: ChangeEvent<HTMLInputElement>) => void; error?: string }) { const update = (id: string, patch: Partial<EvidenceDraft>) => setPhotos((current) => current.map((photo) => photo.id === id ? { ...photo, ...patch } : photo)); return <section className="rounded-xl border border-line bg-surface-soft p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-primary">Evidencia fotográfica</h3><p className="mt-1 text-xs text-muted">PNG, JPG o WebP · máximo 5 MB por fotografía.</p></div><label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg bg-accent-button px-4 text-sm font-semibold text-white hover:bg-accent-button-hover"><Camera className="size-4" />Agregar fotografías<input accept="image/png,image/jpeg,image/webp" className="sr-only" multiple onChange={addPhotos} type="file" /></label></div>{error && <p className="mt-2 text-sm font-medium text-danger">{error}</p>}{photos.length ? <div className="mt-4 grid gap-4 md:grid-cols-2">{photos.map((photo) => <article className="overflow-hidden rounded-xl border border-line bg-surface" key={photo.id}><div className="aspect-video bg-surface-soft"><img alt="Vista previa de evidencia de recepción" className="size-full object-contain" src={photo.previewUrl} /></div><div className="space-y-3 p-3"><select aria-label="Elemento inspeccionado asociado" className="field-control" onChange={(event) => update(photo.id, { inspectionKey: event.target.value })} value={photo.inspectionKey}><option value="">Sin asociación específica</option>{inspection.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select><input aria-label="Descripción de la fotografía" className="field-control" maxLength={300} onChange={(event) => update(photo.id, { description: event.target.value })} placeholder="Descripción opcional" value={photo.description} /><Button className="w-full" onClick={() => { URL.revokeObjectURL(photo.previewUrl); setPhotos((current) => current.filter((item) => item.id !== photo.id)); }} size="sm" variant="ghost"><Trash2 className="size-4" />Quitar selección</Button></div></article>)}</div> : <p className="mt-4 rounded-lg border border-dashed border-line p-5 text-center text-sm text-muted">Todavía no agregaste fotografías.</p>}</section>; }
-
-function ConfirmationStep({ customerName, customer, typeName, brandName, device, condition, reportedProblem, termsAccepted, setTermsAccepted, error }: { customerName: string; customer: CustomerDraft | ReceptionCustomer; typeName: string; brandName: string; device: DeviceDraft; condition: ReturnType<typeof calculateCondition>; reportedProblem: string; termsAccepted: boolean; setTermsAccepted: (value: boolean) => void; error?: string }) { return <fieldset><legend className="text-xl font-bold text-primary">4. Confirmación</legend><p className="mt-2 text-sm text-muted">Revisá la información antes de congelar el snapshot original de recepción.</p><div className="mt-6 rounded-xl border border-line bg-surface-soft p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-accent-soft text-accent"><UserRound className="size-5" /></span><div><strong className="text-primary">{customerName}</strong><p className="text-xs text-muted">{customer.phone}{customer.email ? ` · ${customer.email}` : ""}</p></div></div><dl className="mt-5 grid gap-4 border-t border-line pt-5 sm:grid-cols-2"><SummaryRow label="Equipo" value={`${brandName} ${device.model}`} /><SummaryRow label="Tipo" value={typeName} /><SummaryRow label="Estado físico calculado" value={`${condition.label} (${condition.score} puntos)`} /><SummaryRow label="Accesorios" value={device.accessories.join(", ") || "Ninguno"} /></dl><div className="mt-4"><p className="text-xs font-bold uppercase tracking-wide text-muted">Problema informado</p><p className="mt-1 text-sm leading-6 text-primary">{reportedProblem}</p></div></div><label className={cn("mt-5 flex cursor-pointer items-start gap-3 rounded-lg border bg-surface p-4", error ? "border-danger" : "border-line")}><input checked={termsAccepted} className="mt-0.5 size-5 accent-blue-600" onChange={(event) => setTermsAccepted(event.target.checked)} type="checkbox" /><span className="text-sm leading-6 text-primary">Confirmo que los datos fueron revisados con el cliente. Esta acción conservará la recepción original como evidencia histórica.</span></label>{error && <p className="mt-1.5 text-sm text-danger">{error}</p>}</fieldset>; }
-function SummaryRow({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs font-bold uppercase tracking-wide text-muted">{label}</dt><dd className="mt-1 text-sm font-semibold text-primary">{value}</dd></div>; }
