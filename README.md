@@ -1,30 +1,45 @@
 # Nodo
 
-Plataforma web de gestión y seguimiento de reparaciones para **servicios técnicos**, diseñada para centralizar el ciclo completo de atención: desde la recepción de un equipo hasta su diagnóstico, presupuesto, reparación, cobro y entrega.
+Plataforma web de gestión y seguimiento de reparaciones para **servicios técnicos**. Centraliza la recepción de equipos, el diagnóstico, presupuesto, reparación, cobro y entrega, conservando la trazabilidad de cada servicio.
 
-> **Estado:** 🚧 En desarrollo activo
->
-> ## Screenshots
+> **Estado:** 🚧 Desarrollo activo · último recorrido funcional: 16 de septiembre de 2026.
 
-> Las siguientes capturas corresponden a una versión en desarrollo de Nodo. La interfaz, funcionalidades y datos mostrados pueden modificarse durante la evolución del proyecto.
+## Estado del producto
+
+Actualmente Nodo cuenta con autenticación, aislamiento multi-organización, roles, catálogos de dispositivos, clientes, recepción de equipos, inventario, precios y una base transaccional en evolución para las órdenes de servicio.
+
+El flujo de **Nueva reparación** sigue siendo el punto principal de trabajo: reúne cliente, dispositivo, catálogos dependientes, características técnicas y recepción. La próxima etapa consiste en terminar de consolidar los casos de uso transaccionales de la orden (asignación, tiempo técnico, consumo de inventario, precio, cobro y entrega) sobre esa base.
+
+## Recorrido visual
+
+Las capturas muestran una versión de desarrollo de Nodo; los datos y la interfaz pueden cambiar durante la evolución del proyecto.
 
 ### Dashboard — Superadministrador
 
-Panel principal del superadministrador, orientado a la administración general de la plataforma y sus organizaciones.
+Administración global de organizaciones, usuarios, catálogos maestros, actividad y salud del sistema.
 
 ![Dashboard del superadministrador](screenshots/dashboard_super_admin.png)
 
-### Dashboard — Administrador
+### Dashboard — Propietario
 
-Panel de administración de una organización, desde donde se gestionan las principales operaciones del servicio técnico.
+Panel operativo de la organización: prioridades, reparaciones, clientes, inventario, precios y acceso a una nueva reparación.
 
-![Dashboard del administrador](screenshots/dashboard_admin.png)
+![Dashboard del propietario](screenshots/dashboard_admin.png)
 
 ### Dashboard — Cliente
 
-Panel destinado al cliente final para consultar y realizar el seguimiento de sus equipos y servicios.
+Portal de seguimiento para que cada cliente consulte sus equipos y servicios.
 
 ![Dashboard del cliente](screenshots/dashboard_cliente.png)
+
+### Cobertura validada en la última revisión
+
+- Inicio de sesión.
+- Dashboard de Propietario, en escritorio y móvil.
+- Dashboard de Superadministrador.
+- Acceso a **Nueva reparación** desde el panel operativo.
+
+La captura del portal de Cliente se conserva como referencia del recorrido ya documentado. No se incluyó una captura de Técnico: al momento de la revisión no existe una cuenta activa con ese rol. No se creó ni se modificó una cuenta para fabricar esa vista.
 
 Nodo está planteado como una aplicación **multiusuario y multi-organización**, permitiendo que diferentes servicios técnicos administren sus operaciones de manera independiente dentro de una misma plataforma.
 
@@ -178,28 +193,6 @@ http://localhost:3000
 | `npm run start` | Ejecuta el build de producción   |
 | `npm run lint`  | Ejecuta ESLint                   |
 | `npm test`      | Ejecuta las pruebas con Vitest   |
-
-## Screenshots
-
-> Las siguientes capturas pertenecen a versiones en desarrollo de Nodo. La interfaz y las funcionalidades pueden cambiar durante la evolución del proyecto.
-
-<!-- Agregar las capturas públicas aquí -->
-
-<!-- Ejemplo:
-
-### Dashboard
-
-![Dashboard de Nodo](screenshots/dashboard.png)
-
-### Clientes
-
-![Gestión de clientes](screenshots/clientes.png)
-
-### Reparaciones
-
-![Gestión de reparaciones](screenshots/reparaciones.png)
-
--->
 
 ## En desarrollo
 
