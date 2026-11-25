@@ -12,40 +12,27 @@ El flujo de **Nueva reparación** sigue siendo el punto principal de trabajo: re
 
 ## Recorrido visual
 
-Las capturas muestran una versión de desarrollo de Nodo; los datos y la interfaz pueden cambiar durante la evolución del proyecto.
+Las capturas corresponden a la demostración pública de desarrollo. Muestran únicamente las pantallas públicas y de acceso; no representan recorridos autenticados ni datos reales de clientes.
 
-### Dashboard — Superadministrador
+### Portada pública — 1/1
 
-Administración global de organizaciones, usuarios, catálogos maestros, actividad y salud del sistema.
+Presentación del problema que aborda Nodo, las etapas de una reparación, las funciones principales y la información de contacto.
 
-![Dashboard del superadministrador](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_super_admin.png)
+![Portada pública de Nodo con el flujo de una reparación y sus funcionalidades](docs/assets/screenshots/landing-page-1-1.png)
 
-### Dashboard — Propietario
+### Inicio de sesión — 1/1
 
-Panel operativo de la organización: prioridades, reparaciones, clientes, inventario, precios y acceso a una nueva reparación.
+Acceso mediante correo y contraseña, con recuperación de contraseña y una opción de Google indicada como próxima.
 
-![Dashboard del propietario](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_admin.png)
-
-### Dashboard — Cliente
-
-Portal de seguimiento para que cada cliente consulte sus equipos y servicios.
-
-![Dashboard del cliente](https://raw.githubusercontent.com/ladardrgz/nodo-web-platform/main/screenshots/dashboard_cliente.png)
-
-### Cobertura validada en la última revisión
-
-- Inicio de sesión.
-- Dashboard de Propietario, en escritorio y móvil.
-- Dashboard de Superadministrador.
-- Acceso a **Nueva reparación** desde el panel operativo.
-
-La captura del portal de Cliente se conserva como referencia del recorrido ya documentado. No se incluyó una captura de Técnico: al momento de la revisión no existe una cuenta activa con ese rol. No se creó ni se modificó una cuenta para fabricar esa vista.
-
-Nodo está planteado como una aplicación **multiusuario y multi-organización**, permitiendo que diferentes servicios técnicos administren sus operaciones de manera independiente dentro de una misma plataforma.
+![Pantalla de inicio de sesión de Nodo](docs/assets/screenshots/login-page-1-1.png)
 
 ## Demo
 
-🌐 [Ver aplicación desplegada](https://nodo-web-platform.vercel.app/)
+[Abrir demostración en Vercel](https://nodo-web-platform.vercel.app/)
+
+<a href="https://nodo-web-platform.vercel.app/">
+  <img src="docs/assets/screenshots/demo-qr.jpg" alt="Código QR para abrir la demostración de Nodo en Vercel" width="160" />
+</a>
 
 > La instancia desplegada corresponde a una versión de desarrollo y demostración. Algunas funcionalidades pueden encontrarse todavía en implementación o modificación.
 
